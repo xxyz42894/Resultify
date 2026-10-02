@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Resultify Admin - Login</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="./css/custom.css">
+  <!-- Firebase SDK -->
+  <script type="module" src="./js/auth.js"></script>
+    <style>
+    #loginForm input[type="email"],
+    #loginForm input[type="password"],
+    #loginForm input[type="text"] {
+      color: var(--text-primary) !important;
+      -webkit-text-fill-color: var(--text-primary) !important;
+      caret-color: var(--accent-primary) !important;
+      background-color: var(--bg-input) !important;
+      border-color: var(--border-primary) !important;
+      opacity: 1 !important;
+      box-shadow: none !important;
+      -webkit-box-shadow: none !important;
+    }
+    #loginForm input::placeholder {
+      color: var(--text-tertiary) !important;
+      -webkit-text-fill-color: var(--text-tertiary) !important;
+      opacity: 0.95 !important;
+    }
+    #loginForm input:-webkit-autofill,
+    #loginForm input:-webkit-autofill:hover,
+    #loginForm input:-webkit-autofill:focus,
+    #loginForm input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset !important;
+      -webkit-text-fill-color: var(--text-primary) !important;
+      caret-color: var(--accent-primary) !important;
+      transition: background-color 5000s ease-in-out 0s;
+      border-color: var(--border-primary) !important;
+    }
+    #loginForm input:focus,
+    #loginForm input[type="text"]:focus,
+    #loginForm input[type="password"]:focus {
+      border-color: var(--border-focus) !important;
+      box-shadow: 0 0 0 3px rgba(7, 153, 232, 0.12) !important;
+      -webkit-box-shadow: 0 0 0 3px rgba(7, 153, 232, 0.12) !important;
+    }
+    html.dark #loginForm input:focus,
+    html.dark #loginForm input[type="text"]:focus,
+    html.dark #loginForm input[type="password"]:focus {
+      box-shadow: 0 0 0 3px rgba(7, 153, 232, 0.16) !important;
+      -webkit-box-shadow: 0 0 0 3px rgba(7, 153, 232, 0.16) !important;
+    }
+    #loginForm .material-symbols-outlined {
+      color: var(--text-secondary) !important;
+    }
+    #loginForm .group:focus-within .material-symbols-outlined {
+      color: var(--accent-primary) !important;
+    }
+    #togglePassword .material-symbols-outlined {
+      color: var(--text-secondary) !important;
+    }
+    #togglePassword:hover .material-symbols-outlined {
+      color: var(--text-primary) !important;
+    }
+  </style>
+
+</head>
+<body class="min-h-screen flex items-center justify-center p-3 sm:p-4 overflow-hidden">
+  <!-- Animated Background -->
+  <div class="fixed inset-0 -z-10 overflow-hidden">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-500/10 via-slate-950/50 to-slate-950 dark:from-teal-500/10 dark:via-slate-950/50 dark:to-slate-950"></div>
+    <!-- Animated Orbs -->
+    <div class="absolute -top-40 -right-40 h-80 w-80 sm:h-96 sm:w-96 rounded-full bg-gradient-to-br from-teal-500/20 to-cyan-500/20 blur-3xl float-anim pulse-glow"></div>
+    <div class="absolute -bottom-40 -left-40 h-80 w-80 sm:h-96 sm:w-96 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-500/20 blur-3xl float-anim-slow pulse-glow"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-60 w-60 sm:h-80 sm:w-80 rounded-full bg-gradient-to-br from-emerald-500/10 to-teal-500/10 blur-3xl pulse-glow"></div>
+    <!-- Grid Pattern -->
+    <div class="absolute inset-0 bg-[linear-gradient(to_right,var(--bg-primary)_1px,transparent_1px),linear-gradient(to_bottom,var(--bg-primary)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_110%)] opacity-5"></div>
+  </div>
+
+  <!-- Theme Toggle -->
+  <button
+    id="themeToggle"
+    class="fixed top-4 right-4 sm:top-6 sm:right-6 flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full glass-card hover:scale-110 active:scale-95 transition-all duration-300 shadow-lg z-50 ripple"
+    title="Toggle Theme"
+  >
+    <span class="material-symbols-outlined text-20 sm:text-24 transition-transform duration-500" id="themeIcon">dark_mode</span>
+  </button>
+
+  <div class="w-full max-w-sm sm:max-w-md">
+    <!-- Login Card -->
+    <div class="glass-card rounded-3xl shadow-2xl p-5 sm:p-8 backdrop-blur-xl border slide-up">
+      <!-- Logo & Brand -->
+      <div class="text-center mb-6 sm:mb-8 slide-up" style="animation-delay: 60ms; opacity: 0;">
+        <div class="relative inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-teal-500 via-teal-500 to-cyan-500 shadow-lg shadow-teal-500/30 mb-4 sm:mb-5 float-anim">
+          <span class="material-symbols-outlined text-white text-3xl sm:text-4xl">school</span>
+          <div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 to-transparent"></div>
+        </div>
+        <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent bg-animated">
+          Resultify Admin
+        </h1>
+        <p class="text-slate-500 dark:text-slate-400 mt-2 text-xs sm:text-sm font-medium">Command Center for Exam Results</p>
+      </div>
+
+      <!-- Email/Password Form -->
+      <form id="loginForm" class="space-y-4 sm:space-y-5 slide-up" style="animation-delay: 120ms; opacity: 0;">
+        <!-- Email Input -->
+        <div class="space-y-2">
+          <label for="email" class="block text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 ml-1">Email Address</label>
+          <div class="relative group">
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              placeholder="admin@example.com"
+              class="w-full px-4 py-3 sm:py-3.5 pl-11 bg-input border border-primary rounded-2xl text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-focus transition-all duration-300 backdrop-blur-sm text-sm sm:text-base"
+            />
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-500 transition-colors text-20">mail</span>
+          </div>
+        </div>
+
+        <!-- Password Input -->
+        <div class="space-y-2">
+          <label for="password" class="block text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 ml-1">Password</label>
+          <div class="relative group">
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              placeholder="••••••••"
+              class="w-full px-4 py-3 sm:py-3.5 pl-11 pr-11 bg-input border border-primary rounded-2xl text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-focus transition-all duration-300 backdrop-blur-sm text-sm sm:text-base"
+            />
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-500 transition-colors text-20">lock</span>
+            <button
+              type="button"
+              id="togglePassword"
+              class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-xl hover:bg-hover transition-colors ripple"
+            >
+              <span class="material-symbols-outlined text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-20">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="hidden p-3 sm:p-3.5 rounded-2xl bg-red-500/10 border border-red-500/40 text-red-600 dark:text-red-400 text-xs sm:text-sm flex items-center gap-2 slide-up backdrop-blur-sm">
+          <span class="material-symbols-outlined text-18 flex-shrink-0">error</span>
+          <span id="errorText" class="break-words"></span>
+        </div>
+
+        <!-- Login Button -->
+        <button
+          type="submit"
+          id="loginBtn"
+          class="w-full flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 bg-gradient-to-r from-teal-500 via-teal-500 to-cyan-500 text-white font-semibold rounded-2xl shadow-lg shadow-teal-500/30 hover:shadow-teal-500/40 hover:scale-[1.02] active:scale-[0.995] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ripple text-sm sm:text-base"
+        >
+          <span id="loginBtnText">Sign In</span>
+          <span id="loginSpinner" class="hidden loading-spinner h-5 w-5 border-2 border-white/30 border-t-white rounded-full"></span>
+        </button>
+      </form>
+
+      <!-- Divider -->
+      <div class="flex items-center gap-3 sm:gap-4 my-5 sm:my-6 slide-up" style="animation-delay: 180ms; opacity: 0;">
+        <div class="flex-1 h-px bg-gradient-to-r from-transparent to-slate-300/60 dark:to-slate-700/60"></div>
+        <span class="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider font-semibold px-2">Or continue with</span>
+        <div class="flex-1 h-px bg-gradient-to-r from-slate-300/60 dark:from-slate-700/60 to-transparent"></div>
+      </div>
+
+      <!-- Google Sign In -->
+      <button
+        id="googleSignInBtn"
+        class="w-full flex items-center justify-center gap-2 sm:gap-3 px-6 py-3.5 sm:py-4 bg-white/90 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 text-slate-800 dark:text-slate-100 font-semibold rounded-2xl border border-slate-200/80 dark:border-white/10 transition-all duration-300 hover:scale-[1.02] active:scale-[0.995] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-sm hover:shadow-md ripple text-sm sm:text-base slide-up"
+        style="animation-delay: 200ms;"
+      >
+        <svg class="h-5 w-5 sm:h-6 sm:w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+          <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+          <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+          <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+          <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+        </svg>
+        <span id="googleBtnText">Sign in with Google</span>
+        <span id="googleSpinner" class="hidden loading-spinner h-5 w-5 border-2 border-slate-400/30 border-t-slate-700 dark:border-slate-300/30 dark:border-t-slate-100 rounded-full"></span>
+      </button>
+
+      <!-- Footer -->
+      <div class="text-center mt-6 sm:mt-8 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 slide-up" style="animation-delay: 300ms; opacity: 0;">
+        <p class="font-medium">Resultify Admin Panel • v1.0</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed bottom-3 right-3 left-3 sm:bottom-4 sm:right-4 sm:left-auto z-50 space-y-2 w-auto sm:w-full sm:max-w-sm flex flex-col items-end"></div>
+
+  <!-- Floating Diagnostic Logger -->
+  <script src="./js/floating-logger.js"></script>
+</body>
+</html>
