@@ -292,4 +292,3 @@ document.querySelectorAll(".ripple").forEach(btn => {
     setTimeout(() => ripple.remove(), 600);
   });
 });
-      
