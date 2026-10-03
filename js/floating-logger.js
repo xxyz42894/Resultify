@@ -104,7 +104,14 @@
   const origError = console.error;
   console.error = function(...args) {
     origError.apply(console, args);
-    const text = args.map(a => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" ");
+    const text = args.map(a => {
+      if (a instanceof Error) return a.message;
+      if (a && typeof a === "object" && a.message) return a.message;
+      if (typeof a === "object") {
+        try { return JSON.stringify(a); } catch { return String(a); }
+      }
+      return String(a);
+    }).join(" ");
     addLog("ERROR", text);
   };
 
