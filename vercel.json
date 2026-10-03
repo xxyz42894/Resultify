@@ -2,6 +2,10 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/api/onesignal",
+      "destination": "/api/onesignal.js"
+    },
+    {
       "source": "/api/onesignal/:path*",
       "destination": "/api/onesignal.js"
     }
