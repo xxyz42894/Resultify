@@ -1,24 +1,23 @@
-// Dashboard Module - Results CRUD, Push Notifications, Analytics
+// Dashboard Module - Results CRUD, Push Notifications, Analytics, Subscribers
 import { 
   ref, 
   push, 
   set, 
   update, 
   remove, 
-  onValue, 
-  query, 
-  orderByChild 
+  onValue 
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { auth, database } from "./firebase-config.js";
 import { logout } from "./auth.js";
 import { 
   getOneSignalOverview, 
+  getOneSignalSubscribers, 
   sendResultPushNotification, 
   sendPushNotification 
 } from "./onesignal-api.js";
 
-// HTML Escape Helper (XSS prevention & missing reference fix)
+// HTML Escape Helper
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)
@@ -29,8 +28,7 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-
-// DOM Elements
+// Top Bar Elements
 const adminEmailEl = document.getElementById("adminEmail");
 const logoutBtn = document.getElementById("logoutBtn");
 const themeToggle = document.getElementById("themeToggle");
@@ -39,21 +37,20 @@ const totalResultsEl = document.getElementById("totalResults");
 const totalNotificationsEl = document.getElementById("totalNotifications");
 const systemStatusEl = document.getElementById("systemStatus");
 
-// Tabs
+// Navigation Tabs
 const tabBtns = document.querySelectorAll(".tab-btn");
 const tabContents = document.querySelectorAll(".tab-content");
 
-// Results Management
+// Results UI
 const searchInput = document.getElementById("searchInput");
 const filterBtns = document.querySelectorAll(".filter-btn");
 const addResultBtn = document.getElementById("addResultBtn");
 const emptyAddBtn = document.getElementById("emptyAddBtn");
-const resultsTableBody = document.getElementById("resultsTableBody");
 const resultsGrid = document.getElementById("resultsGrid");
 const emptyState = document.getElementById("emptyState");
 const loadingState = document.getElementById("loadingState");
 
-// Result Modal
+// Result Form Modal
 const resultModal = document.getElementById("resultModal");
 const modalTitle = document.getElementById("modalTitle");
 const closeModalBtn = document.getElementById("closeModalBtn");
@@ -63,7 +60,7 @@ const submitBtn = document.getElementById("submitBtn");
 const submitBtnText = document.getElementById("submitBtnText");
 const submitSpinner = document.getElementById("submitSpinner");
 
-// Modal Form Fields
+// Modal Input Fields
 const resultIdInput = document.getElementById("resultId");
 const titleInput = document.getElementById("title");
 const labelInput = document.getElementById("label");
@@ -88,7 +85,7 @@ const deleteConfirmBtn = document.getElementById("deleteConfirmBtn");
 const deleteBtnText = document.getElementById("deleteBtnText");
 const deleteSpinner = document.getElementById("deleteSpinner");
 
-// Quick Push
+// Quick Broadcast
 const quickPushForm = document.getElementById("quickPushForm");
 const quickTitleInput = document.getElementById("quickTitle");
 const quickBodyInput = document.getElementById("quickBody");
@@ -96,10 +93,20 @@ const quickPushBtn = document.getElementById("quickPushBtn");
 const quickPushBtnText = document.getElementById("quickPushBtnText");
 const quickPushSpinner = document.getElementById("quickPushSpinner");
 
-// Toast
+// Subscribers Elements
+const cardSubscribersClick = document.getElementById("cardSubscribersClick");
+const tabBtnSubscribers = document.getElementById("tabBtnSubscribers");
+const subscribersListGrid = document.getElementById("subscribersListGrid");
+const subscribersLoading = document.getElementById("subscribersLoading");
+const subscribersEmpty = document.getElementById("subscribersEmpty");
+const refreshSubscribersBtn = document.getElementById("refreshSubscribersBtn");
+const subscriberModal = document.getElementById("subscriberModal");
+const closeSubModalBtn = document.getElementById("closeSubModalBtn");
+
+// Global Toast
 const toastContainer = document.getElementById("toastContainer");
 
-// State
+// Application State
 let results = [];
 let filteredResults = [];
 let currentFilter = "all";
@@ -108,22 +115,28 @@ let isEditMode = false;
 let editingResultKey = null;
 let deleteTargetKey = null;
 let deleteTargetName = "";
+let subscribersList = [];
 
-// Auth State
+// Local environment check
+const isLocal = window.location.hostname === "localhost" ||
+                window.location.hostname === "127.0.0.1" ||
+                window.location.hostname.startsWith("10.") ||
+                window.location.hostname.startsWith("192.168.");
+
+// Auth listener
 onAuthStateChanged(auth, (user) => {
   if (user && adminEmailEl) {
     adminEmailEl.textContent = user.email || user.displayName || "Admin";
   }
 });
 
-// Logout
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     await logout();
   });
 }
 
-// Theme Management
+// Theme Engine
 const THEME_KEY = "resultify_admin_theme";
 
 function getTheme() {
@@ -163,7 +176,7 @@ if (themeToggle) {
   });
 }
 
-// Add ripple effect to buttons
+// Ripple Effect
 document.querySelectorAll(".ripple, button").forEach(btn => {
   btn.addEventListener("click", function(e) {
     const rect = this.getBoundingClientRect();
@@ -178,11 +191,10 @@ document.querySelectorAll(".ripple, button").forEach(btn => {
   });
 });
 
-// Tabs
+// Tab Navigation
 tabBtns.forEach(btn => {
   btn.addEventListener("click", () => {
     const tabId = btn.dataset.tab;
-    
     tabBtns.forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     
@@ -196,16 +208,14 @@ tabBtns.forEach(btn => {
       activeContent.classList.remove("hidden");
       activeContent.classList.add("active");
     }
+
+    if (tabId === "subscribers") {
+      fetchSubscribersData();
+    }
   });
 });
 
-// Detect local environment
-const isLocal = window.location.hostname === "localhost" ||
-                window.location.hostname === "127.0.0.1" ||
-                window.location.hostname.startsWith("10.") ||
-                window.location.hostname.startsWith("192.168.");
-
-// Fetch OneSignal Overview
+// Analytics Overview
 async function fetchAnalytics() {
   try {
     const analytics = await getOneSignalOverview();
@@ -216,42 +226,22 @@ async function fetchAnalytics() {
       totalNotificationsEl.textContent = analytics.messageableSubscriptions.toLocaleString();
     }
     if (systemStatusEl) {
-      if (isLocal) {
-        systemStatusEl.textContent = "Local Dev";
-        systemStatusEl.classList.remove("text-red-400", "text-green-400");
-        systemStatusEl.classList.add("text-teal-400");
-      } else {
-        systemStatusEl.textContent = "Online";
-        systemStatusEl.classList.remove("text-red-400");
-        systemStatusEl.classList.add("text-green-400");
-      }
+      systemStatusEl.textContent = isLocal ? "Local Dev" : "Online";
+      systemStatusEl.classList.remove("text-red-400");
+      systemStatusEl.classList.add(isLocal ? "text-teal-400" : "text-green-400");
     }
   } catch (error) {
     console.error("Error fetching analytics:", error);
-    if (totalSubscribersEl) {
-      totalSubscribersEl.textContent = "—";
-    }
-    if (totalNotificationsEl) {
-      totalNotificationsEl.textContent = "—";
-    }
+    if (totalSubscribersEl) totalSubscribersEl.textContent = "—";
+    if (totalNotificationsEl) totalNotificationsEl.textContent = "—";
     if (systemStatusEl) {
-      if (isLocal) {
-        systemStatusEl.textContent = "Local Dev";
-        systemStatusEl.classList.remove("text-red-400", "text-green-400");
-        systemStatusEl.classList.add("text-teal-400");
-      } else {
-        systemStatusEl.textContent = "API Error";
-        systemStatusEl.classList.remove("text-green-400");
-        systemStatusEl.classList.add("text-red-400");
-      }
-    }
-    if (!isLocal) {
-      showToast(`OneSignal API: ${error.message}`, "error");
+      systemStatusEl.textContent = "API Error";
+      systemStatusEl.classList.add("text-red-400");
     }
   }
 }
 
-// Fetch Results from Firebase
+// Results from Firebase
 function fetchResults() {
   const resultsRef = ref(database, "results");
   
@@ -262,146 +252,124 @@ function fetchResults() {
     if (snapshot.exists()) {
       snapshot.forEach((childSnapshot) => {
         const result = childSnapshot.val();
-        results.push({
-          key: childSnapshot.key,
-          ...result
-        });
-        if (result.notificationSent) {
-          notificationCount++;
-        }
+        results.push({ key: childSnapshot.key, ...result });
+        if (result.notificationSent) notificationCount++;
       });
     }
     
-    // Sort by createdAt descending
-    results.sort((a, b) => {
-      const timeA = a.createdAt || 0;
-      const timeB = b.createdAt || 0;
-      return timeB - timeA;
-    });
+    results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     
-    // Update counts
-    if (totalResultsEl) {
-      totalResultsEl.textContent = results.length.toString();
-    }
-    if (totalNotificationsEl) {
-      totalNotificationsEl.textContent = notificationCount.toString();
-    }
+    if (totalResultsEl) totalResultsEl.textContent = results.length.toString();
+    if (totalNotificationsEl) totalNotificationsEl.textContent = notificationCount.toString();
     
-    // Apply filters
     applyFilters();
-    
-    if (loadingState) {
-      loadingState.classList.add("hidden");
-    }
-    if (results.length === 0) {
-      if (emptyState) { emptyState.classList.remove("hidden"); emptyState.classList.add("flex"); }
+    if (loadingState) loadingState.classList.add("hidden");
+    if (results.length === 0 && emptyState) {
+      emptyState.classList.remove("hidden");
+      emptyState.classList.add("flex");
     }
   }, (error) => {
-    console.error("Error fetching results:", error);
+    console.error("Firebase Error:", error);
     showToast("Error loading results from Firebase", "error");
-    if (loadingState) { loadingState.classList.add("hidden"); }
-    if (emptyState) { emptyState.classList.remove("hidden"); emptyState.classList.add("flex"); }
+    if (loadingState) loadingState.classList.add("hidden");
+    if (emptyState) {
+      emptyState.classList.remove("hidden");
+      emptyState.classList.add("flex");
+    }
   });
 }
 
-// Apply Search and Filter
 function applyFilters() {
   filteredResults = results.filter(result => {
-    // Filter by category
-    if (currentFilter !== "all" && result.category !== currentFilter) {
-      return false;
-    }
-    
-    // Filter by search query
+    if (currentFilter !== "all" && result.category !== currentFilter) return false;
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase();
       const title = (result.title || "").toLowerCase();
-      const category = (result.category || "").toLowerCase();
+      const cat = (result.category || "").toLowerCase();
       const board = (result.boardOrUniversity || "").toLowerCase();
-      if (!title.includes(query) && !category.includes(query) && !board.includes(query)) {
-        return false;
-      }
+      if (!title.includes(q) && !cat.includes(q) && !board.includes(q)) return false;
     }
-    
     return true;
   });
-  
   renderResults();
 }
 
-// Render Results (Cards)
 function renderResults() {
-  const grid = document.getElementById("resultsGrid");
-  if (grid) grid.innerHTML = "";
+  if (!resultsGrid) return;
+  resultsGrid.innerHTML = "";
+
   if (filteredResults.length === 0) {
-    if (emptyState) { emptyState.classList.remove("hidden"); emptyState.classList.add("flex"); }
+    if (emptyState) {
+      emptyState.classList.remove("hidden");
+      emptyState.classList.add("flex");
+    }
     return;
   }
-  if (emptyState) { emptyState.classList.add("hidden"); emptyState.classList.remove("flex"); }
+
+  if (emptyState) {
+    emptyState.classList.add("hidden");
+    emptyState.classList.remove("flex");
+  }
+
   filteredResults.forEach(result => {
     const card = document.createElement("div");
-    card.className = "glass-card rounded-2xl border border-[var(--border-primary)] p-4 sm:p-5 shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col h-full";
-    const createdDate = result.createdAt ? new Date(result.createdAt).toLocaleDateString("en-IN",{year:"numeric",month:"short",day:"numeric"}) : "N/A";
+    card.className = "glass-card rounded-2xl border border-[var(--border-primary)] p-4 sm:p-5 shadow-lg flex flex-col h-full";
+    const createdDate = result.createdAt ? new Date(result.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }) : "N/A";
     const statusBadge = getStatusBadge(result.status);
     const categoryBadge = getCategoryBadge(result.category);
-    const pushBadge = result.notificationSent ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs badge-green"><span class="material-symbols-outlined text-14">check_circle</span>Sent</span>' : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs badge-gray">Not Sent</span>';
+    const pushBadge = result.notificationSent 
+      ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs badge-green"><span class="material-symbols-outlined text-14">check_circle</span>Sent</span>'
+      : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs badge-gray">Not Sent</span>';
+
     card.innerHTML = `
       <div class="flex items-start justify-between gap-3 mb-3">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 mb-1.5 flex-wrap">${categoryBadge}${statusBadge}${pushBadge}</div>
-          <h3 class="text-base sm:text-lg font-semibold text-[var(--text-primary)] leading-snug line-clamp-2" title="${escapeHtml(result.title||'')}">${escapeHtml(result.title||'-')}</h3>
-          ${result.label && result.label!==result.title ? '<p class="text-xs sm:text-sm text-[var(--text-secondary)] mt-1 line-clamp-1" title="'+escapeHtml(result.label)+'">'+escapeHtml(result.label)+'</p>' : ''}
+          <h3 class="text-base sm:text-lg font-semibold text-[var(--text-primary)] leading-snug line-clamp-2">${escapeHtml(result.title || '-')}</h3>
+          ${result.label && result.label !== result.title ? `<p class="text-xs sm:text-sm text-[var(--text-secondary)] mt-1 line-clamp-1">${escapeHtml(result.label)}</p>` : ''}
         </div>
-        <div class="text-right shrink-0"><p class="text-xs text-[var(--text-tertiary)]">ID</p><p class="text-sm font-semibold text-[var(--text-primary)]">${escapeHtml(result.id||'-')}</p></div>
+        <div class="text-right shrink-0">
+          <p class="text-xs text-[var(--text-tertiary)]">ID</p>
+          <p class="text-sm font-semibold text-[var(--text-primary)]">${escapeHtml(result.id || '-')}</p>
+        </div>
       </div>
       <div class="space-y-2 text-sm mb-4 flex-1">
-        <div class="flex items-start justify-between gap-3"><span class="text-[var(--text-secondary)] shrink-0">Board/University</span><span class="text-[var(--text-primary)] text-right font-medium line-clamp-2" title="${escapeHtml(result.boardOrUniversity||'')}">${escapeHtml(result.boardOrUniversity||'-')}</span></div>
-        <div class="flex items-center justify-between gap-3"><span class="text-[var(--text-secondary)]">Year</span><span class="text-[var(--text-primary)] font-medium">${escapeHtml(result.year||'-')}</span></div>
-        <div class="flex items-center justify-between gap-3"><span class="text-[var(--text-secondary)]">Created At</span><span class="text-[var(--text-primary)] font-medium">${createdDate}</span></div>
-        <div class="pt-2 border-t border-[var(--border-primary)]/60"><p class="text-xs text-[var(--text-secondary)] line-clamp-2" title="${escapeHtml(result.description||'')}">${escapeHtml(result.description||'-')}</p></div>
+        <div class="flex items-start justify-between gap-3"><span class="text-[var(--text-secondary)] shrink-0">Board/Univ</span><span class="text-[var(--text-primary)] text-right font-medium line-clamp-2">${escapeHtml(result.boardOrUniversity || '-')}</span></div>
+        <div class="flex items-center justify-between gap-3"><span class="text-[var(--text-secondary)]">Year</span><span class="text-[var(--text-primary)] font-medium">${escapeHtml(result.year || '-')}</span></div>
+        <div class="flex items-center justify-between gap-3"><span class="text-[var(--text-secondary)]">Published</span><span class="text-[var(--text-primary)] font-medium">${createdDate}</span></div>
+        <div class="pt-2 border-t border-[var(--border-primary)]/60"><p class="text-xs text-[var(--text-secondary)] line-clamp-2">${escapeHtml(result.description || '-')}</p></div>
       </div>
       <div class="flex flex-wrap items-center justify-end gap-2 mt-auto pt-2 border-t border-[var(--border-primary)]/60">
-        <button class="quick-push-btn inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors text-xs font-medium ripple" data-key="${result.key}"><span class="material-symbols-outlined text-16">campaign</span><span>Send Push</span></button>
-        <button class="edit-btn inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 transition-colors text-xs font-medium ripple" data-key="${result.key}"><span class="material-symbols-outlined text-16">edit</span><span>Edit</span></button>
-        <button class="delete-btn inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors text-xs font-medium ripple" data-key="${result.key}" data-name="${escapeHtml(result.title||'this result')}"><span class="material-symbols-outlined text-16">delete</span><span>Delete</span></button>
+        <button class="quick-push-btn inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 text-xs font-medium ripple" data-key="${result.key}"><span class="material-symbols-outlined text-16">campaign</span><span>Send Push</span></button>
+        <button class="edit-btn inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 text-xs font-medium ripple" data-key="${result.key}"><span class="material-symbols-outlined text-16">edit</span><span>Edit</span></button>
+        <button class="delete-btn inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs font-medium ripple" data-key="${result.key}" data-name="${escapeHtml(result.title || 'this result')}"><span class="material-symbols-outlined text-16">delete</span><span>Delete</span></button>
       </div>
     `;
-    const gridEl = document.getElementById("resultsGrid");
-    if (gridEl) gridEl.appendChild(card);
+    resultsGrid.appendChild(card);
   });
-  document.querySelectorAll(".edit-btn").forEach(btn=>{btn.addEventListener("click",()=>openEditModal(btn.dataset.key))});
-  document.querySelectorAll(".delete-btn").forEach(btn=>{btn.addEventListener("click",()=>openDeleteModal(btn.dataset.key,btn.dataset.name))});
-  document.querySelectorAll(".quick-push-btn").forEach(btn => {
-    btn.addEventListener("click", () => sendQuickPush(btn.dataset.key));
-  });
+
+  document.querySelectorAll(".edit-btn").forEach(btn => btn.addEventListener("click", () => openEditModal(btn.dataset.key)));
+  document.querySelectorAll(".delete-btn").forEach(btn => btn.addEventListener("click", () => openDeleteModal(btn.dataset.key, btn.dataset.name)));
+  document.querySelectorAll(".quick-push-btn").forEach(btn => btn.addEventListener("click", () => sendQuickPush(btn.dataset.key)));
 }
+
 function getStatusBadge(status) {
   const s = (status || "").toLowerCase();
-  if (s.includes("available")) {
-    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-green">Result Available</span>';
-  } else if (s.includes("coming")) {
-    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-orange">Coming Soon</span>';
-  } else if (s.includes("announced")) {
-    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-blue">Date Announced</span>';
-  }
+  if (s.includes("available")) return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-green">Result Available</span>';
+  if (s.includes("coming")) return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-orange">Coming Soon</span>';
+  if (s.includes("announced")) return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-blue">Date Announced</span>';
   return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-gray">Unknown</span>';
 }
 
 function getCategoryBadge(category) {
   const c = (category || "").toLowerCase();
-  if (c === "10th") {
-    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-10th">10th</span>';
-  } else if (c === "12th") {
-    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-12th">12th</span>';
-  } else if (c === "university") {
-    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-university">University</span>';
-  } else if (c === "other") {
-    return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-other">Other</span>';
-  }
-  return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-gray">-</span>';
+  if (c === "10th") return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-10th">10th</span>';
+  if (c === "12th") return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-12th">12th</span>';
+  if (c === "university") return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-university">University</span>';
+  return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs badge-other">Other</span>';
 }
 
-// Search
+// Search & Filter listeners
 if (searchInput) {
   searchInput.addEventListener("input", (e) => {
     searchQuery = e.target.value;
@@ -409,7 +377,6 @@ if (searchInput) {
   });
 }
 
-// Filters
 filterBtns.forEach(btn => {
   btn.addEventListener("click", () => {
     filterBtns.forEach(b => b.classList.remove("active"));
@@ -419,63 +386,11 @@ filterBtns.forEach(btn => {
   });
 });
 
-// Modal Controls
-function openAddModal() {
-  isEditMode = false;
-  editingResultKey = null;
-  if (modalTitle) {
-    modalTitle.innerHTML = '<span class="material-symbols-outlined text-teal-400">add_circle</span>Add New Result';
-  }
-  if (submitBtnText) {
-    submitBtnText.textContent = "Publish Result";
-  }
-  resultForm.reset();
-  if (sendPushToggle) sendPushToggle.checked = false;
-  if (notificationFields) notificationFields.classList.add("hidden");
-  if (resultIdInput) resultIdInput.focus();
-  showModal(resultModal);
-}
-
-function openEditModal(key) {
-  const result = results.find(r => r.key === key);
-  if (!result) return;
-  
-  isEditMode = true;
-  editingResultKey = key;
-  
-  if (modalTitle) {
-    modalTitle.innerHTML = '<span class="material-symbols-outlined text-teal-400">edit</span>Edit Result';
-  }
-  if (submitBtnText) {
-    submitBtnText.textContent = "Update Result";
-  }
-  
-  // Populate form
-  if (resultIdInput) resultIdInput.value = result.id || "";
-  if (titleInput) titleInput.value = result.title || "";
-  if (labelInput) labelInput.value = result.label || "";
-  if (categoryInput) categoryInput.value = result.category || "";
-  if (boardOrUniversityInput) boardOrUniversityInput.value = result.boardOrUniversity || "";
-  if (yearInput) yearInput.value = result.year || "";
-  if (statusInput) statusInput.value = result.status || "";
-  if (publishedInput) publishedInput.value = result.published || "";
-  if (urlInput) urlInput.value = result.url || "";
-  if (descriptionInput) descriptionInput.value = result.description || "";
-  if (openActivityInput) openActivityInput.value = result.openActivity || "ResultDetailActivity";
-  
-  if (sendPushToggle) sendPushToggle.checked = false;
-  if (notificationFields) notificationFields.classList.add("hidden");
-  
-  showModal(resultModal);
-}
-
+// Modal Helpers
 function showModal(modal) {
   if (modal) {
     modal.classList.remove("hidden");
     modal.classList.add("flex");
-    modal.classList.add("modal-backdrop");
-    const content = modal.querySelector(".glass-card");
-    if (content) content.classList.add("modal-content");
   }
 }
 
@@ -483,56 +398,70 @@ function hideModal(modal) {
   if (modal) {
     modal.classList.add("hidden");
     modal.classList.remove("flex");
-    modal.classList.remove("modal-backdrop");
-    const content = modal.querySelector(".glass-card");
-    if (content) content.classList.remove("modal-content");
   }
 }
 
-// Modal Events
+function openAddModal() {
+  isEditMode = false;
+  editingResultKey = null;
+  if (modalTitle) modalTitle.innerHTML = '<span class="material-symbols-outlined text-teal-400">add_circle</span>Add New Result';
+  if (submitBtnText) submitBtnText.textContent = "Publish Result";
+  if (resultForm) resultForm.reset();
+  if (sendPushToggle) sendPushToggle.checked = false;
+  if (notificationFields) notificationFields.classList.add("hidden");
+  showModal(resultModal);
+}
+
+function openEditModal(key) {
+  const result = results.find(r => r.key === key);
+  if (!result) return;
+  isEditMode = true;
+  editingResultKey = key;
+  if (modalTitle) modalTitle.innerHTML = '<span class="material-symbols-outlined text-teal-400">edit</span>Edit Result';
+  if (submitBtnText) submitBtnText.textContent = "Update Result";
+
+  resultIdInput.value = result.id || "";
+  titleInput.value = result.title || "";
+  labelInput.value = result.label || "";
+  categoryInput.value = result.category || "";
+  boardOrUniversityInput.value = result.boardOrUniversity || "";
+  yearInput.value = result.year || "";
+  statusInput.value = result.status || "";
+  publishedInput.value = result.published || "";
+  urlInput.value = result.url || "";
+  descriptionInput.value = result.description || "";
+  openActivityInput.value = result.openActivity || "ResultDetailActivity";
+
+  if (sendPushToggle) sendPushToggle.checked = false;
+  if (notificationFields) notificationFields.classList.add("hidden");
+  showModal(resultModal);
+}
+
 if (addResultBtn) addResultBtn.addEventListener("click", openAddModal);
 if (emptyAddBtn) emptyAddBtn.addEventListener("click", openAddModal);
 if (closeModalBtn) closeModalBtn.addEventListener("click", () => hideModal(resultModal));
 if (cancelBtn) cancelBtn.addEventListener("click", () => hideModal(resultModal));
 
-// Close modal on backdrop click
-if (resultModal) {
-  resultModal.addEventListener("click", (e) => {
-    if (e.target === resultModal) hideModal(resultModal);
-  });
-}
-
-// Auto-fill notification fields when title changes
-if (titleInput) {
+if (titleInput && notificationTitleInput) {
   titleInput.addEventListener("input", () => {
-    if (notificationTitleInput && !notificationTitleInput.value) {
-      notificationTitleInput.value = titleInput.value;
-    }
+    if (!notificationTitleInput.value) notificationTitleInput.value = titleInput.value;
   });
 }
 
-// Toggle notification fields
 if (sendPushToggle) {
   sendPushToggle.addEventListener("change", () => {
-    if (notificationFields) {
-      notificationFields.classList.toggle("hidden", !sendPushToggle.checked);
-    }
+    if (notificationFields) notificationFields.classList.toggle("hidden", !sendPushToggle.checked);
     if (sendPushToggle.checked && notificationTitleInput && titleInput) {
-      if (!notificationTitleInput.value) {
-        notificationTitleInput.value = titleInput.value;
-      }
-      if (!notificationBodyInput.value) {
-        notificationBodyInput.value = "New result available. Tap to check now!";
-      }
+      if (!notificationTitleInput.value) notificationTitleInput.value = titleInput.value;
+      if (!notificationBodyInput.value) notificationBodyInput.value = "New result available. Tap to check now!";
     }
   });
 }
 
-// Submit Result Form
+// Result Form Submit
 if (resultForm) {
   resultForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    
     const resultData = {
       id: parseInt(resultIdInput.value),
       title: titleInput.value.trim(),
@@ -548,59 +477,42 @@ if (resultForm) {
       createdAt: isEditMode ? (results.find(r => r.key === editingResultKey)?.createdAt || Date.now()) : Date.now(),
       notificationSent: isEditMode ? (results.find(r => r.key === editingResultKey)?.notificationSent || false) : false
     };
-    
-    setSubmitLoading(true);
-    
+
+    if (submitBtn) submitBtn.disabled = true;
+    if (submitSpinner) submitSpinner.classList.remove("hidden");
+
     try {
-      let pushSent = false;
-      
       if (isEditMode) {
-        // Update existing result
-        const resultRef = ref(database, `results/${editingResultKey}`);
-        await update(resultRef, resultData);
+        await update(ref(database, `results/${editingResultKey}`), resultData);
         showToast("Result updated successfully", "success");
       } else {
-        // Create new result
-        const resultsRef = ref(database, "results");
-        const newResultRef = push(resultsRef);
-        await set(newResultRef, resultData);
+        const newRef = push(ref(database, "results"));
+        await set(newRef, resultData);
         showToast("Result published successfully", "success");
-        
-        // Send push notification if toggle is ON
+
         if (sendPushToggle.checked) {
           const notifTitle = notificationTitleInput.value.trim() || resultData.title;
           const notifBody = notificationBodyInput.value.trim() || "Tap to check your result now!";
-          
-          const pushResult = await sendResultPushNotification(resultData, notifTitle, notifBody);
-          
-          if (pushResult.success) {
-            // Update notificationSent flag
-            await update(newResultRef, { notificationSent: true });
-            showToast("Push notification sent to all subscribed users", "success");
-            pushSent = true;
+          const pushRes = await sendResultPushNotification(resultData, notifTitle, notifBody);
+          if (pushRes.success) {
+            await update(newRef, { notificationSent: true });
+            showToast("Push broadcast delivered to subscribers", "success");
           } else {
-            showToast(`Push failed: ${pushResult.errors?.[0] || "Unknown error"}`, "warning");
+            showToast(`Push failed: ${pushRes.errors?.[0] || "Unknown error"}`, "warning");
           }
         }
       }
-      
       hideModal(resultModal);
-    } catch (error) {
-      console.error("Error saving result:", error);
-      showToast("Error saving result: " + error.message, "error");
+    } catch (err) {
+      showToast("Error saving result: " + err.message, "error");
     } finally {
-      setSubmitLoading(false);
+      if (submitBtn) submitBtn.disabled = false;
+      if (submitSpinner) submitSpinner.classList.add("hidden");
     }
   });
 }
 
-function setSubmitLoading(loading) {
-  if (submitBtn) submitBtn.disabled = loading;
-  if (submitBtnText) submitBtnText.textContent = loading ? "Publishing..." : (isEditMode ? "Update Result" : "Publish Result");
-  if (submitSpinner) submitSpinner.classList.toggle("hidden", !loading);
-}
-
-// Delete Modal
+// Delete Logic
 function openDeleteModal(key, name) {
   deleteTargetKey = key;
   deleteTargetName = name;
@@ -608,108 +520,184 @@ function openDeleteModal(key, name) {
   showModal(deleteModal);
 }
 
-function closeDeleteModal() {
-  hideModal(deleteModal);
-  deleteTargetKey = null;
-  deleteTargetName = "";
-}
-
-if (deleteCancelBtn) deleteCancelBtn.addEventListener("click", closeDeleteModal);
-if (deleteModal) {
-  deleteModal.addEventListener("click", (e) => {
-    if (e.target === deleteModal) closeDeleteModal();
-  });
-}
-
+if (deleteCancelBtn) deleteCancelBtn.addEventListener("click", () => hideModal(deleteModal));
 if (deleteConfirmBtn) {
   deleteConfirmBtn.addEventListener("click", async () => {
     if (!deleteTargetKey) return;
-    
-    setDeleteLoading(true);
-    
+    deleteConfirmBtn.disabled = true;
+    if (deleteSpinner) deleteSpinner.classList.remove("hidden");
     try {
-      const resultRef = ref(database, `results/${deleteTargetKey}`);
-      await remove(resultRef);
+      await remove(ref(database, `results/${deleteTargetKey}`));
       showToast("Result deleted successfully", "success");
-      closeDeleteModal();
-    } catch (error) {
-      console.error("Error deleting result:", error);
-      showToast("Error deleting result: " + error.message, "error");
+      hideModal(deleteModal);
+    } catch (err) {
+      showToast("Error deleting: " + err.message, "error");
     } finally {
-      setDeleteLoading(false);
+      deleteConfirmBtn.disabled = false;
+      if (deleteSpinner) deleteSpinner.classList.add("hidden");
     }
   });
 }
 
-function setDeleteLoading(loading) {
-  if (deleteConfirmBtn) deleteConfirmBtn.disabled = loading;
-  if (deleteBtnText) deleteBtnText.textContent = loading ? "Deleting..." : "Delete";
-  if (deleteSpinner) deleteSpinner.classList.toggle("hidden", !loading);
-}
-
-// Quick Push for specific result
+// Quick Push
 async function sendQuickPush(key) {
   const result = results.find(r => r.key === key);
-  if (!result) return;
-  
-  const confirmed = confirm(`Send push notification for "${result.title}" to all subscribers?`);
-  if (!confirmed) return;
-  
+  if (!result || !confirm(`Broadcast push notification for "${result.title}"?`)) return;
+
   try {
-    const pushResult = await sendResultPushNotification(result);
-    if (pushResult.success) {
-      // Update notificationSent flag
-      const resultRef = ref(database, `results/${key}`);
-      await update(resultRef, { notificationSent: true });
-      showToast("Push notification sent successfully", "success");
+    const res = await sendResultPushNotification(result);
+    if (res.success) {
+      await update(ref(database, `results/${key}`), { notificationSent: true });
+      showToast("Push notification dispatched", "success");
     } else {
-      showToast(`Push failed: ${pushResult.errors?.[0] || "Unknown error"}`, "error");
+      showToast(`Failed: ${res.errors?.[0]}`, "error");
     }
-  } catch (error) {
-    console.error("Error sending quick push:", error);
-    showToast("Error sending push notification", "error");
+  } catch (err) {
+    showToast("Push error: " + err.message, "error");
   }
 }
 
-// Quick Broadcast Form
+// Quick Broadcast Tab
 if (quickPushForm) {
   quickPushForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    
     const title = quickTitleInput.value.trim();
     const body = quickBodyInput.value.trim();
-    
-    if (!title || !body) {
-      showToast("Title and message are required", "warning");
-      return;
-    }
-    
-    setQuickPushLoading(true);
-    
+    if (!title || !body) return;
+
+    if (quickPushBtn) quickPushBtn.disabled = true;
+    if (quickPushSpinner) quickPushSpinner.classList.remove("hidden");
+
     try {
-      const pushResult = await sendPushNotification({ title, body });
-      if (pushResult.success) {
-        showToast(`Broadcast sent (ID: ${pushResult.id}, recipients: ${pushResult.recipients || "?"})`, "success");
+      const res = await sendPushNotification({ title, body });
+      if (res.success) {
+        showToast(`Broadcast sent (Recipients: ${res.recipients || 0})`, "success");
         quickPushForm.reset();
       } else {
-        showToast(`Broadcast failed: ${pushResult.errors?.[0] || "Unknown error"}`, "error");
+        showToast(`Broadcast failed: ${res.errors?.[0]}`, "error");
       }
-    } catch (error) {
-      console.error("Error sending broadcast:", error);
-      showToast("Error sending broadcast", "error");
+    } catch (err) {
+      showToast("Broadcast error: " + err.message, "error");
     } finally {
-      setQuickPushLoading(false);
+      if (quickPushBtn) quickPushBtn.disabled = false;
+      if (quickPushSpinner) quickPushSpinner.classList.add("hidden");
     }
   });
 }
 
-function setQuickPushLoading(loading) {
-  if (quickPushBtn) quickPushBtn.disabled = loading;
-  if (quickPushBtnText) quickPushBtnText.textContent = loading ? "Sending..." : "Send Broadcast";
-  if (quickPushSpinner) quickPushSpinner.classList.toggle("hidden", !loading);
+// ============ SUBSCRIBERS LOGIC ============
+if (cardSubscribersClick && tabBtnSubscribers) {
+  cardSubscribersClick.addEventListener("click", () => {
+    tabBtnSubscribers.click();
+  });
 }
 
-// Toast System
+async function fetchSubscribersData() {
+  if (subscribersLoading) subscribersLoading.classList.remove("hidden");
+  if (subscribersEmpty) subscribersEmpty.classList.add("hidden");
+  if (subscribersListGrid) subscribersListGrid.innerHTML = "";
+
+  const res = await getOneSignalSubscribers({ limit: 50 });
+  if (subscribersLoading) subscribersLoading.classList.add("hidden");
+
+  if (!res.success || !res.players || res.players.length === 0) {
+    if (subscribersEmpty) subscribersEmpty.classList.remove("hidden");
+    return;
+  }
+
+  subscribersList = res.players;
+  renderSubscribersList(subscribersList);
+}
+
+function formatRelativeTime(timestampSec) {
+  if (!timestampSec) return "N/A";
+  const diffSec = Math.floor(Date.now() / 1000 - timestampSec);
+  if (diffSec < 60) return "Just now";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} minutes ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} hours ago`;
+  return `${Math.floor(diffSec / 86400)} days ago`;
+}
+
+function formatDuration(seconds) {
+  if (!seconds) return "0s";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function renderSubscribersList(players) {
+  if (!subscribersListGrid) return;
+  subscribersListGrid.innerHTML = "";
+
+  players.forEach((player) => {
+    const card = document.createElement("div");
+    card.className = "glass-card rounded-2xl border admin-border p-4 sm:p-5 flex flex-col justify-between hover:border-teal-400 transition-all cursor-pointer";
+    const deviceName = `${player.device_model || "Android Device"} (OS ${player.device_os || "N/A"})`;
+    const lastActiveText = formatRelativeTime(player.last_active);
+    const country = player.country || "IN";
+    const isSubscribed = !player.invalid_identifier;
+
+    card.innerHTML = `
+      <div>
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs ${isSubscribed ? 'badge-green' : 'badge-orange'}">
+            <span class="material-symbols-outlined text-14">${isSubscribed ? 'notifications_active' : 'notifications_off'}</span>
+            ${isSubscribed ? 'Subscribed' : 'Inactive'}
+          </span>
+          <span class="text-xs text-slate-400 font-mono">${country}</span>
+        </div>
+        <h3 class="text-base font-semibold text-slate-100 flex items-center gap-2">
+          <span class="material-symbols-outlined text-teal-400 text-20">smartphone</span>
+          ${escapeHtml(deviceName)}
+        </h3>
+        <p class="text-xs font-mono text-slate-400 truncate mt-1">ID: ${player.id}</p>
+        <div class="mt-4 pt-3 border-t admin-border grid grid-cols-2 gap-2 text-xs">
+          <div><span class="text-slate-400 block">Sessions:</span><span class="font-semibold text-slate-200">${player.session_count || 1}</span></div>
+          <div><span class="text-slate-400 block">Last Active:</span><span class="font-semibold text-slate-200">${lastActiveText}</span></div>
+        </div>
+      </div>
+      <button class="mt-4 w-full py-2 bg-[var(--bg-hover)] border admin-border rounded-xl text-xs font-medium text-teal-400 hover:bg-teal-500/10 transition-colors flex items-center justify-center gap-1.5">
+        <span class="material-symbols-outlined text-16">visibility</span> View Full Profile
+      </button>
+    `;
+
+    card.addEventListener("click", () => openSubscriberModal(player));
+    subscribersListGrid.appendChild(card);
+  });
+}
+
+function openSubscriberModal(player) {
+  document.getElementById("subModalDeviceId").textContent = `OneSignal ID: ${player.id}`;
+  document.getElementById("subModalDeviceModel").textContent = player.device_model || "Unknown Device";
+  document.getElementById("subModalDeviceOs").textContent = `Android ${player.device_os || "N/A"}`;
+  document.getElementById("subModalCountry").textContent = player.country ? `${player.country} (Timezone: ${player.timezone || "Asia/Kolkata"})` : "India (IN)";
+  document.getElementById("subModalAppVersion").textContent = player.game_version || "1.0";
+
+  document.getElementById("subModalCreatedAt").textContent = player.created_at ? new Date(player.created_at * 1000).toLocaleString("en-IN") : "N/A";
+  document.getElementById("subModalLastActive").textContent = player.last_active ? `${new Date(player.last_active * 1000).toLocaleString("en-IN")} (${formatRelativeTime(player.last_active)})` : "N/A";
+  document.getElementById("subModalSessions").textContent = player.session_count || 1;
+  document.getElementById("subModalDuration").textContent = formatDuration(player.playtime || 0);
+
+  document.getElementById("subModalIp").textContent = player.ip || "Hidden / N/A";
+  document.getElementById("subModalSdk").textContent = player.sdk || "051002 (SDK v5)";
+  document.getElementById("subModalToken").textContent = player.identifier || "No Push Token Recorded";
+
+  const badge = document.getElementById("subModalStatusBadge");
+  if (player.invalid_identifier) {
+    badge.className = "text-xs px-2 py-0.5 rounded-full badge-orange";
+    badge.textContent = "Unsubscribed";
+  } else {
+    badge.className = "text-xs px-2 py-0.5 rounded-full badge-green";
+    badge.textContent = "Subscribed";
+  }
+
+  showModal(subscriberModal);
+}
+
+if (closeSubModalBtn) closeSubModalBtn.addEventListener("click", () => hideModal(subscriberModal));
+if (refreshSubscribersBtn) refreshSubscribersBtn.addEventListener("click", fetchSubscribersData);
+
+// Toast Engine
 function showToast(message, type = "info") {
   const toast = document.createElement("div");
   const bgColors = {
@@ -724,32 +712,25 @@ function showToast(message, type = "info") {
     warning: "warning",
     info: "info"
   };
-  
+
   toast.className = `toast-enter flex items-center gap-3 px-4 py-3 rounded-xl border ${bgColors[type]} text-white shadow-lg backdrop-blur-sm max-w-sm`;
   toast.innerHTML = `
     <span class="material-symbols-outlined text-20">${icons[type]}</span>
     <p class="text-sm font-medium flex-1">${message}</p>
-    <button class="toast-close flex items-center justify-center w-6 h-6 rounded-full hover:bg-white/20 transition-colors">
+    <button class="toast-close flex items-center justify-center w-6 h-6 rounded-full hover:bg-white/20">
       <span class="material-symbols-outlined text-16">close</span>
     </button>
   `;
-  
-  if (toastContainer) {
-    toastContainer.appendChild(toast);
-  }
-  
+
+  if (toastContainer) toastContainer.appendChild(toast);
   setTimeout(() => {
     toast.classList.remove("toast-enter");
     toast.classList.add("toast-enter-active");
   }, 10);
-  
-  const autoRemoveTimeout = setTimeout(() => {
-    removeToast(toast);
-  }, 4000);
-  
-  const closeBtn = toast.querySelector(".toast-close");
-  closeBtn.addEventListener("click", () => {
-    clearTimeout(autoRemoveTimeout);
+
+  const autoRemove = setTimeout(() => removeToast(toast), 4000);
+  toast.querySelector(".toast-close").addEventListener("click", () => {
+    clearTimeout(autoRemove);
     removeToast(toast);
   });
 }
@@ -758,19 +739,15 @@ function removeToast(toast) {
   toast.classList.remove("toast-enter-active");
   toast.classList.add("toast-exit-active");
   setTimeout(() => {
-    if (toast.parentNode) {
-      toast.parentNode.removeChild(toast);
-    }
+    if (toast.parentNode) toast.parentNode.removeChild(toast);
   }, 300);
 }
 
-// Initialize
+// Bootstrapping
 function init() {
   fetchAnalytics();
   fetchResults();
-  // Refresh analytics every 30 seconds
   setInterval(fetchAnalytics, 30000);
 }
 
-// Start
 init();
