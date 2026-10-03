@@ -15,7 +15,7 @@ async function callOneSignalApi(endpoint, options = {}) {
 
   if (isLocal) {
     if (endpoint.includes("action=send")) {
-      targetUrl = `https://corsproxy.io/?url=${encodeURIComponent("https://api.onesignal.com/notifications")}`;
+      targetUrl = `https://corsproxy.io/?url=${encodeURIComponent("https://onesignal.com/api/v1/notifications")}`;
       options.headers = {
         ...options.headers,
         "Authorization": `Key ${ONESIGNAL_CONFIG.restApiKey}`,
@@ -27,7 +27,7 @@ async function callOneSignalApi(endpoint, options = {}) {
         options.body = JSON.stringify(parsed);
       }
     } else {
-      targetUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://api.onesignal.com/apps/${ONESIGNAL_CONFIG.appId}`)}`;
+      targetUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://onesignal.com/api/v1/apps/${ONESIGNAL_CONFIG.appId}`)}`;
       options.headers = {
         ...options.headers,
         "Authorization": `Key ${ONESIGNAL_CONFIG.restApiKey}`,
@@ -44,7 +44,12 @@ async function callOneSignalApi(endpoint, options = {}) {
     }
   });
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch (e) {
+    throw new Error(`Server error (HTTP ${response.status})`);
+  }
   if (!response.ok || (data.success === false)) {
     throw new Error(data.error || `HTTP ${response.status}`);
   }
@@ -62,7 +67,7 @@ export async function getOneSignalOverview() {
       appId: d.id ?? ONESIGNAL_CONFIG.appId
     };
   } catch (error) {
-    console.error("[OneSignal Overview Error]:", error);
+    console.error("[OneSignal Overview Error]:", error.message);
     return {
       totalSubscriptions: 0,
       messageableSubscriptions: 0,
@@ -89,7 +94,7 @@ export async function sendPushNotification(notificationData) {
       recipients: res.recipients ?? 0
     };
   } catch (error) {
-    console.error("[OneSignal Send Error]:", error);
+    console.error("[OneSignal Send Error]:", error.message);
     return { success: false, errors: [error.message] };
   }
 }
