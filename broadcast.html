@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Resultify - Advanced Broadcast</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/custom.css">
+  <script type="module" src="./js/auth-guard.js"></script>
+  <script type="module" src="./js/boardcast-page.js"></script>
+</head>
+<body class="min-h-screen pb-16 select-none" style="background-color: var(--bg-void); color: var(--text-primary);">
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-30 border-b px-4 py-3 flex items-center justify-between backdrop-blur-xl" style="background-color: var(--bg-void); border-color: var(--border-subtle);">
+    <div class="flex items-center gap-2.5">
+      <a href="dashboard.html" class="w-8 h-8 rounded-xl flex items-center justify-center" style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-muted);">
+        <span class="material-symbols-outlined text-18">arrow_back</span>
+      </a>
+      <div>
+        <h1 class="text-sm font-bold" style="color: var(--text-primary);">Broadcast & Live Alerts</h1>
+        <p class="text-[10px]" style="color: var(--text-muted);">OneSignal Push & In-App Banner sync</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto p-4 space-y-4">
+    <!-- Broadcast Form -->
+    <form id="broadcastForm" class="surface-card p-4 space-y-3.5">
+      
+      <!-- Audience Target Selection -->
+      <div class="space-y-1.5">
+        <label class="block text-[11px] font-bold" style="color: var(--text-muted);">TARGET AUDIENCE:</label>
+        <select id="targetAudience" class="w-full px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer">
+          <option value="all">Send to All Subscribed Devices</option>
+          <option value="testing">Specific Testing Device Only</option>
+        </select>
+      </div>
+
+      <!-- Specific Testing Device Selector -->
+      <div id="testingDeviceContainer" class="hidden space-y-1.5 p-3 rounded-xl" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+        <div class="flex items-center justify-between text-[11px] font-bold" style="color: var(--accent-amber);">
+          <span>Select Target Device:</span>
+          <button type="button" id="refreshTestingDevs" class="text-[10px] underline flex items-center gap-0.5">
+            <span class="material-symbols-outlined text-12">refresh</span> Refresh
+          </button>
+        </div>
+        <select id="testingDeviceSelect" class="w-full px-3 py-2 rounded-xl text-xs font-mono"></select>
+        <p id="selectedSubIdText" class="text-[10px] font-mono break-all pt-1 font-bold" style="color: var(--accent-mint);"></p>
+      </div>
+
+      <!-- Message Content -->
+      <div class="space-y-1">
+        <label class="block text-[11px] font-bold" style="color: var(--text-muted);">Notification Title</label>
+        <input type="text" id="bcTitle" required placeholder="e.g., Important Result Notice" class="w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold" style="color: var(--text-primary);">
+      </div>
+
+      <div class="space-y-1">
+        <label class="block text-[11px] font-bold" style="color: var(--text-muted);">Message Body</label>
+        <textarea id="bcBody" required rows="3" placeholder="Enter message text..." class="w-full px-3.5 py-2.5 rounded-xl text-xs resize-none" style="color: var(--text-primary);"></textarea>
+      </div>
+
+      <!-- Delivery Priority -->
+      <div class="space-y-1.5">
+        <label class="block text-[11px] font-bold" style="color: var(--text-muted);">DELIVERY PRIORITY & DISPLAY:</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+            <input type="radio" name="bcPriority" value="10" checked class="accent-[#047857]">
+            <div>
+              <span class="block text-xs font-bold" style="color: var(--accent-mint);">High Priority</span>
+              <span class="block text-[9px]" style="color: var(--text-muted);">Heads-up pop display</span>
+            </div>
+          </label>
+
+          <label class="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+            <input type="radio" name="bcPriority" value="5" class="accent-[#047857]">
+            <div>
+              <span class="block text-xs font-bold" style="color: var(--text-primary);">Normal Priority</span>
+              <span class="block text-[9px]" style="color: var(--text-muted);">Quiet shade only</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Media & Link Config -->
+      <div class="p-3 rounded-xl space-y-2.5" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+        <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-cyan);">Media & Link Config</p>
+        
+        <div>
+          <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Click Action URL (Empty = Default App Open)</label>
+          <input type="url" id="bcUrl" placeholder="https://... (Leave blank to just open app)" class="w-full px-3 py-2 rounded-xl text-xs">
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Big Picture Image URL (Optional)</label>
+          <input type="url" id="bcBigPicture" placeholder="https://example.com/banner.jpg" class="w-full px-3 py-2 rounded-xl text-xs">
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Large Icon URL (Optional)</label>
+          <input type="url" id="bcLargeIcon" placeholder="https://example.com/icon.png" class="w-full px-3 py-2 rounded-xl text-xs">
+        </div>
+      </div>
+
+      <!-- Action Buttons Config -->
+      <div class="p-3 rounded-xl space-y-2.5" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+        <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-amber);">Notification Action Buttons (Max 2)</p>
+        
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" id="bcBtn1Text" placeholder="Btn 1 Label (e.g. Check Now)" class="px-2.5 py-1.5 rounded-xl text-xs">
+          <input type="url" id="bcBtn1Url" placeholder="Btn 1 URL" class="px-2.5 py-1.5 rounded-xl text-xs">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" id="bcBtn2Text" placeholder="Btn 2 Label (e.g. Details)" class="px-2.5 py-1.5 rounded-xl text-xs">
+          <input type="url" id="bcBtn2Url" placeholder="Btn 2 URL" class="px-2.5 py-1.5 rounded-xl text-xs">
+        </div>
+      </div>
+
+      <!-- App Header Banner Toggles -->
+      <div class="p-3 rounded-xl space-y-2.5" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+        <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-mint);">App Header Announcement Banner</p>
+        <div class="space-y-2 pt-1">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold" style="color: var(--accent-mint);">Pin as App Update Banner</span>
+            <label class="relative inline-flex items-center shrink-0">
+              <input type="checkbox" id="toggleAppUpdate" class="sr-only banner-toggle">
+              <div class="toggle-track"><div class="toggle-knob"></div></div>
+            </label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold" style="color: var(--accent-amber);">Pin as General Notice Banner</span>
+            <label class="relative inline-flex items-center shrink-0">
+              <input type="checkbox" id="toggleNotice" class="sr-only banner-toggle">
+              <div class="toggle-track"><div class="toggle-knob"></div></div>
+            </label>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold" style="color: var(--accent-rose);">Pin as Critical Bug / Server Down Alert</span>
+            <label class="relative inline-flex items-center shrink-0">
+              <input type="checkbox" id="toggleBug" class="sr-only banner-toggle">
+              <div class="toggle-track"><div class="toggle-knob"></div></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Android Live Preview Shade -->
+      <div class="notif-mockup p-3 space-y-2">
+        <div class="flex items-center justify-between text-[10px]" style="color: var(--text-subtle);">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-14" style="color: var(--accent-mint);">school</span>
+            <span class="font-bold" style="color: var(--text-muted);">Resultify</span>
+            <span>• Just now</span>
+          </div>
+          <span class="text-[9px] font-mono px-1 rounded font-bold" id="mockupPriorityBadge" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">HIGH POP</span>
+        </div>
+        
+        <div class="space-y-1">
+          <p id="mockupTitle" class="text-xs font-bold truncate" style="color: var(--text-primary);">Notification Title</p>
+          <p id="mockupBody" class="text-[11px] line-clamp-2" style="color: var(--text-muted);">Message will show here...</p>
+        </div>
+
+        <div id="mockupBigPictureContainer" class="hidden rounded-xl overflow-hidden max-h-32 border" style="border-color: var(--border-subtle);">
+          <img id="mockupBigPictureImg" src="" alt="Preview" class="w-full object-cover">
+        </div>
+
+        <div id="mockupBtnsContainer" class="hidden flex gap-2 pt-1 border-t" style="border-color: var(--border-subtle);">
+          <span id="mockupBtn1" class="text-[10px] font-bold px-2 py-0.5 rounded" style="background-color: var(--bg-elevated); color: var(--accent-cyan);">Button 1</span>
+          <span id="mockupBtn2" class="text-[10px] font-bold px-2 py-0.5 rounded" style="background-color: var(--bg-elevated); color: var(--accent-cyan);">Button 2</span>
+        </div>
+      </div>
+
+      <button type="submit" id="bcSubmitBtn" class="w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all" style="background-color: var(--accent-mint); color: var(--bg-void);">
+        <span class="material-symbols-outlined text-18">send</span> Send Notification Now
+      </button>
+    </form>
+
+    <!-- LIVE RESPONSE INSPECTOR (Shows both what was filled & what OneSignal answered) -->
+    <div id="responseInspectorCard" class="hidden surface-card p-4 space-y-3">
+      <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-subtle);">
+        <div class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-18" style="color: var(--accent-cyan);">terminal</span>
+          <h3 class="text-xs font-bold" style="color: var(--text-primary);">OneSignal API Live Diagnostics</h3>
+        </div>
+        <span id="respStatusBadge" class="text-[10px] px-2 py-0.5 rounded font-mono font-bold">STATUS --</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-center text-xs">
+        <div class="p-2 rounded-xl" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+          <span class="text-[10px] block" style="color: var(--text-muted);">Confirmed Recipients</span>
+          <span id="respRecipientsVal" class="font-mono font-bold text-base" style="color: var(--text-primary);">0</span>
+        </div>
+        <div class="p-2 rounded-xl" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+          <span class="text-[10px] block" style="color: var(--text-muted);">OneSignal Notification UUID</span>
+          <span id="respIdVal" class="font-mono font-bold text-[11px] truncate block" style="color: var(--accent-mint);">--</span>
+        </div>
+      </div>
+
+      <!-- What was filled & sent -->
+      <div class="space-y-1">
+        <div class="flex items-center justify-between text-[10px] font-bold" style="color: var(--accent-amber);">
+          <span>1. OUTGOING PAYLOAD SENT TO ONESIGNAL:</span>
+          <span id="payloadItemsCount" class="font-mono"></span>
+        </div>
+        <pre id="outgoingPayloadJson" class="p-3 rounded-xl font-mono text-[10px] overflow-x-auto max-h-40 border custom-scrollbar select-all" style="background-color: var(--bg-input); border-color: var(--border-subtle); color: var(--text-primary);"></pre>
+      </div>
+
+      <!-- What OneSignal replied -->
+      <div class="space-y-1">
+        <span class="text-[10px] font-bold" style="color: var(--accent-cyan);">2. RAW INCOMING ONESIGNAL RESPONSE:</span>
+        <pre id="rawJsonResponse" class="p-3 rounded-xl font-mono text-[10px] overflow-x-auto max-h-40 border custom-scrollbar select-all" style="background-color: var(--bg-input); border-color: var(--border-subtle); color: var(--text-primary);"></pre>
+      </div>
+    </div>
+  </main>
+
+  <div id="toastContainer" class="fixed top-4 inset-x-4 z-50 pointer-events-none space-y-2"></div>
+</body>
+</html>

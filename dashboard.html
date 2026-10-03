@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Resultify Admin - Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/custom.css">
+  <script type="module" src="./js/auth-guard.js"></script>
+  <script type="module" src="./js/dashboard.js"></script>
+</head>
+<body class="min-h-screen pb-16 select-none" style="background-color: var(--bg-void); color: var(--text-primary);">
+  <!-- Top App Bar -->
+  <header class="sticky top-0 z-30 border-b backdrop-blur-xl px-4 py-3 flex items-center justify-between" style="background-color: var(--bg-void); border-color: var(--border-subtle);">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold" style="background-color: rgba(4, 120, 87, 0.15); border: 1px solid rgba(4, 120, 87, 0.35); color: var(--accent-mint);">
+        <span class="material-symbols-outlined text-20">school</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm font-bold tracking-tight" style="color: var(--text-primary);">Resultify Admin</h1>
+          <span id="adminRoleBadge" class="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold" style="background-color: rgba(4, 120, 87, 0.15); color: var(--accent-mint);">OWNER</span>
+        </div>
+        <p id="adminEmailDisplay" class="text-[10px] truncate max-w-[170px] mt-0.5" style="color: var(--text-muted);">Connecting...</p>
+      </div>
+    </div>
+    <button id="logoutBtn" class="w-9 h-9 rounded-xl flex items-center justify-center" style="background-color: rgba(190, 18, 60, 0.12); border: 1px solid rgba(190, 18, 60, 0.25); color: var(--accent-rose);">
+      <span class="material-symbols-outlined text-18">logout</span>
+    </button>
+  </header>
+
+  <main class="max-w-md mx-auto p-4 space-y-3">
+    <!-- TOP 4 CARDS (Exact match to screenshot) -->
+
+    <!-- 1. Subscribed Devices Card -->
+    <a href="subscribers.html" class="block p-4 rounded-2xl surface-card transition-all">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold" style="color: var(--text-muted);">Subscribed Devices</p>
+          <h3 id="statSubscribers" class="text-2xl font-bold mt-1 font-mono" style="color: var(--text-primary);">--</h3>
+          <p class="text-[11px] mt-0.5" style="color: var(--text-subtle);">Live from OneSignal</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background-color: rgba(4, 120, 87, 0.12); border: 1px solid rgba(4, 120, 87, 0.3); color: var(--accent-mint);">
+          <span class="material-symbols-outlined text-20">devices</span>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center gap-1.5 text-[11px] font-bold" style="color: var(--accent-mint);">
+        <span class="w-2 h-2 rounded-full animate-ping" style="background-color: var(--accent-mint);"></span>
+        <span>Live Sync</span>
+      </div>
+    </a>
+
+    <!-- 2. Active Exam Results Card -->
+    <a href="results.html" class="block p-4 rounded-2xl surface-card transition-all">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold" style="color: var(--text-muted);">Active Exam Results</p>
+          <h3 id="statResults" class="text-2xl font-bold mt-1 font-mono" style="color: var(--text-primary);">--</h3>
+          <p class="text-[11px] mt-0.5" style="color: var(--text-subtle);">In Firebase Database</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background-color: rgba(14, 116, 144, 0.12); border: 1px solid rgba(14, 116, 144, 0.3); color: var(--accent-cyan);">
+          <span class="material-symbols-outlined text-20">description</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- 3. Notifications Sent Card -->
+    <a href="broadcast.html" class="block p-4 rounded-2xl surface-card transition-all">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold" style="color: var(--text-muted);">Notifications Sent</p>
+          <h3 id="statNotifications" class="text-2xl font-bold mt-1 font-mono" style="color: var(--text-primary);">--</h3>
+          <p class="text-[11px] mt-0.5" style="color: var(--text-subtle);">Total published</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background-color: rgba(180, 83, 9, 0.12); border: 1px solid rgba(180, 83, 9, 0.3); color: var(--accent-amber);">
+          <span class="material-symbols-outlined text-20">notifications_active</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- 4. System Status Card -->
+    <div class="p-4 rounded-2xl surface-card">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold" style="color: var(--text-muted);">System Status</p>
+          <h3 id="statSystem" class="text-xl font-bold mt-1" style="color: var(--accent-mint);">Online</h3>
+          <p id="statLatency" class="text-[11px] font-mono mt-0.5" style="color: var(--text-subtle);">RTDB: --ms | OneSignal: --ms</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background-color: rgba(4, 120, 87, 0.12); border: 1px solid rgba(4, 120, 87, 0.3); color: var(--accent-mint);">
+          <span class="material-symbols-outlined text-20">cloud_sync</span>
+        </div>
+      </div>
+      <div class="mt-3 flex items-center gap-1.5 text-[11px] font-bold" style="color: var(--accent-mint);">
+        <span class="w-2 h-2 rounded-full" style="background-color: var(--accent-mint);"></span>
+        <span>Connected</span>
+      </div>
+    </div>
+
+    <!-- LOWER 3 CARDS (Same big card style, zero duplicate pills) -->
+
+    <!-- 5. Push Notification Composer Card -->
+    <a href="broadcast.html" class="block p-4 rounded-2xl surface-card transition-all">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold" style="color: var(--text-muted);">Quick Push Notification</p>
+          <h3 class="text-base font-bold mt-1" style="color: var(--text-primary);">Broadcast Alerts</h3>
+          <p class="text-[11px] mt-0.5" style="color: var(--text-subtle);">Live Android shade preview & notices</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background-color: rgba(180, 83, 9, 0.12); border: 1px solid rgba(180, 83, 9, 0.3); color: var(--accent-amber);">
+          <span class="material-symbols-outlined text-20">campaign</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- 6. App Settings & Remote Config Card -->
+    <a href="settings.html" class="block p-4 rounded-2xl surface-card transition-all">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold" style="color: var(--text-muted);">App Settings & Remote Config</p>
+          <h3 class="text-base font-bold mt-1" style="color: var(--text-primary);">Security & Banner</h3>
+          <p class="text-[11px] mt-0.5" style="color: var(--text-subtle);">Google login switch, emergency alert</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background-color: rgba(74, 93, 110, 0.15); border: 1px solid rgba(74, 93, 110, 0.3); color: var(--text-muted);">
+          <span class="material-symbols-outlined text-20">settings</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- 7. Permissions & Team Roles Card (Owner Only) -->
+    <a href="permissions.html" id="cardPermissions" class="block p-4 rounded-2xl surface-card transition-all">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs font-semibold" style="color: var(--text-muted);">Permissions & Team Roles</p>
+          <h3 class="text-base font-bold mt-1" style="color: var(--text-primary);">Role Management</h3>
+          <p class="text-[11px] mt-0.5" style="color: var(--text-subtle);">Owner, Editor & Viewer access control</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background-color: rgba(4, 120, 87, 0.12); border: 1px solid rgba(4, 120, 87, 0.3); color: var(--accent-mint);">
+          <span class="material-symbols-outlined text-20">admin_panel_settings</span>
+        </div>
+      </div>
+    </a>
+  </main>
+</body>
+</html>
