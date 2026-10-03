@@ -7,7 +7,6 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Load from environment variables without exposing raw secrets in GitHub commits
   const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
   const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
 
@@ -15,7 +14,7 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       statusCode: 500,
-      error: "Vercel Config Error: ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY is missing in Project Environment Variables."
+      error: "Vercel Config Error: ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY is missing."
     });
   }
 
@@ -50,7 +49,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 2. Subscribers List (Without artificial bottlenecks)
+  // 2. Subscribers List
   if (req.method === "GET" && action === "subscribers") {
     try {
       const response = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
@@ -72,7 +71,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Send Push with Distinct Urgent vs High vs Normal Payloads
+  // 3. Send Push with Android Intent Isolation
   if (req.method === "POST") {
     try {
       const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
@@ -112,7 +111,7 @@ export default async function handler(req, res) {
 
       const mode = parsedBody.priority_mode || (Number(parsedBody.priority) === 5 ? "normal" : "urgent");
 
-      // Extract button URLs specifically into the data payload for Android SDK
+      // Buttons parsing: Android and Web separation
       const buttonUrlsData = {};
       const androidButtons = [];
       const webButtons = [];
@@ -122,7 +121,7 @@ export default async function handler(req, res) {
           if (btn.text) {
             const btnId = btn.id || `btn_action_${index + 1}`;
             
-            // Clean Android button structure (No invalid nested URL to prevent build drop)
+            // Android Push strictly expects id & text
             androidButtons.push({
               id: btnId,
               text: String(btn.text)
@@ -144,7 +143,14 @@ export default async function handler(req, res) {
         });
       }
 
-      // 1. BASE COMMON PAYLOAD
+      // Root URL handling:
+      // Agar action buttons maujood hain, toh root url ko data.body_url me rakhenge taaki Android
+      // ka native PendingIntent action button ke click ko override na kare!
+      if (parsedBody.url) {
+        buttonUrlsData["body_url"] = String(parsedBody.url);
+      }
+
+      // Base Payload
       const oneSignalPayload = {
         app_id: ONESIGNAL_APP_ID,
         target_channel: "push",
@@ -157,28 +163,30 @@ export default async function handler(req, res) {
         }
       };
 
-      // 2. MODE-SPECIFIC DISTINCT CONFIGURATIONS
+      // Top level url sirf tab bhejte hain jab buttons na hon
+      // (Jab buttons hote hain toh ResultifyApp body tap hone par data.body_url se open karti hai)
+      if (parsedBody.url && androidButtons.length === 0) {
+        oneSignalPayload.url = String(parsedBody.url);
+      }
+
+      // Mode Configurations
       if (mode === "urgent") {
-        // MODE 1: URGENT -> Channel ID + Max Priority + Sound + Public Visibility
         oneSignalPayload.priority = 10;
         oneSignalPayload.existing_android_channel_id = "Result Alerts";
         oneSignalPayload.android_sound = "default";
         oneSignalPayload.android_visibility = 1;
         oneSignalPayload.android_accent_color = "FF047857";
       } else if (mode === "high") {
-        // MODE 2: HIGH -> Heads-up Pop + Sound without overriding Channel ID
         oneSignalPayload.priority = 10;
         oneSignalPayload.android_sound = "default";
         oneSignalPayload.android_visibility = 1;
       } else {
-        // MODE 3: NORMAL -> Priority 5 (Silent/Low), No Sound, Hidden from Heads-up
         oneSignalPayload.priority = 5;
         oneSignalPayload.android_sound = null;
         oneSignalPayload.android_visibility = 0;
       }
 
-      // Optional Extras
-      if (parsedBody.url) oneSignalPayload.url = String(parsedBody.url);
+      // Extras
       if (parsedBody.big_picture || parsedBody.imageUrl) oneSignalPayload.big_picture = String(parsedBody.big_picture || parsedBody.imageUrl);
       if (parsedBody.large_icon || parsedBody.largeIcon) oneSignalPayload.large_icon = String(parsedBody.large_icon || parsedBody.largeIcon);
       
@@ -187,7 +195,6 @@ export default async function handler(req, res) {
         oneSignalPayload.web_buttons = webButtons;
       }
 
-      // Dispatch to OneSignal API
       const response = await fetch("https://api.onesignal.com/notifications?c=push", {
         method: "POST",
         headers: {
