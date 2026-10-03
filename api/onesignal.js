@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const { action } = req.query;
+  const { action, limit = 50, offset = 0 } = req.query;
 
   // 3. GET Overview: /api/onesignal?action=overview
   if (req.method === "GET" && (!action || action === "overview")) {
@@ -64,7 +64,31 @@ export default async function handler(req, res) {
     }
   }
 
-  // 4. POST Broadcast Push: /api/onesignal?action=send
+  // 4. GET Full Subscribers List: /api/onesignal?action=subscribers
+  if (req.method === "GET" && action === "subscribers") {
+    try {
+      const response = await fetch(`${ONESIGNAL_BASE_URL}/players?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Key ${ONESIGNAL_REST_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        return res.status(response.status).json({ success: false, error: data.errors?.[0] || "OneSignal Subscribers Fetch Error" });
+      }
+      return res.status(200).json({
+        success: true,
+        total_count: data.total_count ?? (data.players ? data.players.length : 0),
+        players: data.players ?? []
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // 5. POST Broadcast Push: /api/onesignal?action=send
   if (req.method === "POST") {
     try {
       const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
