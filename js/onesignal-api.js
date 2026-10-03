@@ -27,15 +27,6 @@ async function callOneSignalApi(endpoint, options = {}) {
     throw new Error(`Server JSON Parse Error (HTTP ${response.status})`);
   }
 
-  // Strict Inspection: HTTP 200 me bhi agar success false ya id missing ho[span_6](start_span)[span_6](end_span)
-  if (!response.ok || data.success === false || !data.id && endpoint.includes("action=send")) {
-    const errText = data.error || (data.errors ? (Array.isArray(data.errors) ? data.errors.join(", ") : JSON.stringify(data.errors)) : `HTTP ${response.status}`);
-    const customErr = new Error(errText);
-    customErr.data = data;
-    customErr.statusCode = response.status;
-    throw customErr;
-  }
-
   return data;
 }
 
@@ -50,7 +41,6 @@ export async function getOneSignalOverview() {
       appId: d.appId ?? d.id ?? "Server Synced"
     };
   } catch (error) {
-    console.error("[OneSignal Overview Error]:", error.message);
     return {
       totalSubscriptions: 0,
       messageableSubscriptions: 0,
@@ -61,16 +51,16 @@ export async function getOneSignalOverview() {
   }
 }
 
-export async function getOneSignalSubscribers({ limit = 50, offset = 0 } = {}) {
+export async function getOneSignalSubscribers() {
   try {
-    const res = await callOneSignalApi(`?action=subscribers&limit=${limit}&offset=${offset}`);
+    // Koi unnecessary limit nahi, direct call
+    const res = await callOneSignalApi("?action=subscribers");
     return {
       success: true,
       totalCount: Number(res.total_count) || 0,
       players: res.players || []
     };
   } catch (error) {
-    console.error("[OneSignal Subscribers Fetch Error]:", error.message);
     return {
       success: false,
       totalCount: 0,
@@ -81,56 +71,29 @@ export async function getOneSignalSubscribers({ limit = 50, offset = 0 } = {}) {
 }
 
 export async function sendPushNotification(notificationData) {
-  const {
-    title,
-    body,
-    data = {},
-    imageUrl,
-    largeIcon,
-    url,
-    priority = 10,
-    buttons,
-    target_device_id,
-    subscription_ids
-  } = notificationData || {};
-
-  if (!title || !body) {
-    return { success: false, errors: ["Title & Body are required"] };
-  }
-
   try {
     const res = await callOneSignalApi("?action=send", {
       method: "POST",
-      body: JSON.stringify({
-        title,
-        body,
-        data,
-        imageUrl,
-        largeIcon,
-        url,
-        priority,
-        buttons,
-        target_device_id,
-        subscription_ids
-      })
+      body: JSON.stringify(notificationData)
     });
 
+    const isSuccess = Boolean(res.success && res.id && String(res.id).trim() !== "");
+
     return {
-      success: true,
-      statusCode: 200,
-      id: res.id,
-      messageId: res.id,
+      success: isSuccess,
+      statusCode: res.statusCode || 200,
+      id: res.id || null,
+      messageId: res.id || null,
       recipients: res.recipients ?? 0,
-      warnings: res.warnings || null,
+      errors: res.errors || (isSuccess ? null : ["OneSignal rejected dispatch."]),
       raw: res
     };
   } catch (error) {
-    console.error("[OneSignal Send Error]:", error);
     return {
       success: false,
-      statusCode: error.statusCode || 500,
+      statusCode: 500,
       errors: [error.message],
-      raw: error.data || null
+      raw: { error: error.message }
     };
   }
 }
@@ -144,5 +107,10 @@ export async function sendResultPushNotification(result, customTitle, customBody
     openActivity: result?.openActivity || "ResultDetailActivity",
     url: result?.url || ""
   };
-  return sendPushNotification({ title, body, data });
+  return sendPushNotification({
+    target_channel: "push",
+    headings: { en: String(title) },
+    contents: { en: String(body) },
+    data
+  });
 }
