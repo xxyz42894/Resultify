@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || "739d1e55-aef0-450a-8d69-1624967cdcce";
   const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || "os_v2_app_ooor4vno6bcqvdljcysjm7g4zzlag6irwnremjmfq34i7guug2gctj6xg7xdasm62y7vhrlultkruvbbeysakgmvm722boqdw6wxiyy";
-  const ONESIGNAL_BASE_URL = "https://api.onesignal.com";
+  const ONESIGNAL_BASE_URL = "https://onesignal.com/api/v1";
 
   const { action } = req.query;
 
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     }
   }
 
-  if (req.method === "POST" && action === "send") {
+  if (req.method === "POST") {
     try {
       const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
       const { title, body, data = {}, imageUrl, url, segments } = parsedBody;
