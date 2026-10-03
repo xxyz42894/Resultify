@@ -1,40 +1,21 @@
-// OneSignal API Client - Hybrid: Vercel Serverless Function (production) + CORS Proxy (local AndroidIDE)
+// OneSignal Client API - 100% Synchronized with Vercel Serverless Function (/api/onesignal)
+// Zero Keys, Zero Credentials exposed on client.
 
-const ONESIGNAL_CONFIG = {
-  appId: "739d1e55-aef0-450a-8d69-1624967cdcce",
-  restApiKey: "os_v2_app_ooor4vno6bcqvdljcysjm7g4zzlag6irwnremjmfq34i7guug2gctj6xg7xdasm62y7vhrlultkruvbbeysakgmvm722boqdw6wxiyy"
-};
+const VERCEL_BACKEND_URL = "https://resultify-psi.vercel.app";
 
-const isLocal = window.location.hostname === "localhost" ||
-                window.location.hostname === "127.0.0.1" ||
-                window.location.hostname.startsWith("10.") ||
-                window.location.hostname.startsWith("192.168.");
+const isLocal = typeof window !== "undefined" && (
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname.startsWith("10.") ||
+  window.location.hostname.startsWith("192.168.")
+);
 
+/**
+ * Master Request Bridge
+ */
 async function callOneSignalApi(endpoint, options = {}) {
-  let targetUrl = `/api/onesignal${endpoint}`;
-
-  if (isLocal) {
-    if (endpoint.includes("action=send")) {
-      targetUrl = `https://corsproxy.io/?url=${encodeURIComponent("https://onesignal.com/api/v1/notifications")}`;
-      options.headers = {
-        ...options.headers,
-        "Authorization": `Key ${ONESIGNAL_CONFIG.restApiKey}`,
-        "Content-Type": "application/json"
-      };
-      if (options.body) {
-        const parsed = JSON.parse(options.body);
-        parsed.app_id = ONESIGNAL_CONFIG.appId;
-        options.body = JSON.stringify(parsed);
-      }
-    } else {
-      targetUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://onesignal.com/api/v1/apps/${ONESIGNAL_CONFIG.appId}`)}`;
-      options.headers = {
-        ...options.headers,
-        "Authorization": `Key ${ONESIGNAL_CONFIG.restApiKey}`,
-        "Content-Type": "application/json"
-      };
-    }
-  }
+  const baseUrl = isLocal ? `${VERCEL_BACKEND_URL}/api/onesignal` : "/api/onesignal";
+  const targetUrl = `${baseUrl}${endpoint}`;
 
   const response = await fetch(targetUrl, {
     ...options,
@@ -50,21 +31,26 @@ async function callOneSignalApi(endpoint, options = {}) {
   } catch (e) {
     throw new Error(`Server error (HTTP ${response.status})`);
   }
-  if (!response.ok || (data.success === false)) {
+
+  if (!response.ok || data.success === false) {
     throw new Error(data.error || `HTTP ${response.status}`);
   }
+
   return data;
 }
 
+/**
+ * 1. Overview Stats (Total Subscriptions, Messageable Subscriptions)
+ */
 export async function getOneSignalOverview() {
   try {
     const res = await callOneSignalApi("?action=overview");
     const d = res.data || res;
     return {
-      totalSubscriptions: Number(d.players ?? d.totalSubscriptions ?? d.total_subscriptions ?? 0),
-      messageableSubscriptions: Number(d.messageable_players ?? d.messageableSubscriptions ?? 0),
-      appName: d.name ?? d.appName ?? "Resultify",
-      appId: d.id ?? ONESIGNAL_CONFIG.appId
+      totalSubscriptions: Number(d.totalSubscriptions ?? d.players ?? d.total_subscriptions ?? 0),
+      messageableSubscriptions: Number(d.messageableSubscriptions ?? d.messageable_players ?? 0),
+      appName: d.appName ?? d.name ?? "Resultify",
+      appId: d.appId ?? d.id ?? "Server Synced"
     };
   } catch (error) {
     console.error("[OneSignal Overview Error]:", error.message);
@@ -72,12 +58,37 @@ export async function getOneSignalOverview() {
       totalSubscriptions: 0,
       messageableSubscriptions: 0,
       appName: "Resultify",
-      appId: ONESIGNAL_CONFIG.appId,
+      appId: "Server Synced",
       error: error.message
     };
   }
 }
 
+/**
+ * 2. Full Subscribers & Devices Registry
+ */
+export async function getOneSignalSubscribers({ limit = 50, offset = 0 } = {}) {
+  try {
+    const res = await callOneSignalApi(`?action=subscribers&limit=${limit}&offset=${offset}`);
+    return {
+      success: true,
+      totalCount: Number(res.total_count) || 0,
+      players: res.players || []
+    };
+  } catch (error) {
+    console.error("[OneSignal Subscribers Fetch Error]:", error.message);
+    return {
+      success: false,
+      totalCount: 0,
+      players: [],
+      error: error.message
+    };
+  }
+}
+
+/**
+ * 3. Send Push Broadcast
+ */
 export async function sendPushNotification(notificationData) {
   const { title, body, data = {}, imageUrl, url, segments } = notificationData || {};
   if (!title || !body) return { success: false, errors: ["Title & Message required"] };
@@ -99,6 +110,9 @@ export async function sendPushNotification(notificationData) {
   }
 }
 
+/**
+ * 4. Send Targeted Push for specific Result Card
+ */
 export async function sendResultPushNotification(result, customTitle, customBody) {
   const title = customTitle || result?.title || "New Result Available";
   const body = customBody || (result?.description?.substring(0, 150) || "Tap to check your result now!");
