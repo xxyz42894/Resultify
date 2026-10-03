@@ -112,6 +112,38 @@ export default async function handler(req, res) {
 
       const mode = parsedBody.priority_mode || (Number(parsedBody.priority) === 5 ? "normal" : "urgent");
 
+      // Extract button URLs specifically into the data payload for Android SDK
+      const buttonUrlsData = {};
+      const androidButtons = [];
+      const webButtons = [];
+
+      if (parsedBody.buttons && Array.isArray(parsedBody.buttons)) {
+        parsedBody.buttons.forEach((btn, index) => {
+          if (btn.text) {
+            const btnId = btn.id || `btn_action_${index + 1}`;
+            
+            // Clean Android button structure (No invalid nested URL to prevent build drop)
+            androidButtons.push({
+              id: btnId,
+              text: String(btn.text)
+            });
+
+            // Web Push structure
+            webButtons.push({
+              id: btnId,
+              text: String(btn.text),
+              url: btn.url || undefined
+            });
+
+            // Pass exact key for ResultifyApp click listener
+            if (btn.url) {
+              buttonUrlsData[`${btnId}_url`] = String(btn.url);
+              buttonUrlsData[`btn_action_${index + 1}_url`] = String(btn.url);
+            }
+          }
+        });
+      }
+
       // 1. BASE COMMON PAYLOAD
       const oneSignalPayload = {
         app_id: ONESIGNAL_APP_ID,
@@ -119,7 +151,10 @@ export default async function handler(req, res) {
         headings: { en: String(titleText) },
         contents: { en: String(bodyText) },
         include_subscription_ids: targets,
-        data: parsedBody.data || {}
+        data: {
+          ...(parsedBody.data || {}),
+          ...buttonUrlsData
+        }
       };
 
       // 2. MODE-SPECIFIC DISTINCT CONFIGURATIONS
@@ -146,7 +181,11 @@ export default async function handler(req, res) {
       if (parsedBody.url) oneSignalPayload.url = String(parsedBody.url);
       if (parsedBody.big_picture || parsedBody.imageUrl) oneSignalPayload.big_picture = String(parsedBody.big_picture || parsedBody.imageUrl);
       if (parsedBody.large_icon || parsedBody.largeIcon) oneSignalPayload.large_icon = String(parsedBody.large_icon || parsedBody.largeIcon);
-      if (parsedBody.buttons && Array.isArray(parsedBody.buttons)) oneSignalPayload.buttons = parsedBody.buttons;
+      
+      if (androidButtons.length > 0) {
+        oneSignalPayload.buttons = androidButtons;
+        oneSignalPayload.web_buttons = webButtons;
+      }
 
       // Dispatch to OneSignal API
       const response = await fetch("https://api.onesignal.com/notifications?c=push", {
