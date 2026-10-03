@@ -7,6 +7,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  // Load from environment variables without exposing raw secrets in GitHub commits
   const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
   const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
 
@@ -14,13 +15,12 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       statusCode: 500,
-      error: "Vercel Config Error: ONESIGNAL_APP_ID ya ONESIGNAL_REST_API_KEY missing hai."
+      error: "Vercel Config Error: ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY is missing in Project Environment Variables."
     });
   }
 
-  // Exact header format: 'Key ' prefix is ALWAYS required by OneSignal
-  const cleanKey = ONESIGNAL_REST_API_KEY.replace(/^Key\s+/i, "");
-  const authHeader = `Key ${cleanKey}`;
+  const rawKey = ONESIGNAL_REST_API_KEY.replace(/^Key\s+/i, "");
+  const authHeader = `Key ${rawKey}`;
 
   const { action, limit = 50, offset = 0 } = req.query;
 
@@ -50,10 +50,10 @@ export default async function handler(req, res) {
     }
   }
 
-  // 2. Subscribers List (Fix: Always passes Key prefix so players list loads 100%)
+  // 2. Subscribers List (Without artificial bottlenecks)
   if (req.method === "GET" && action === "subscribers") {
     try {
-      const response = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`, {
+      const response = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
         method: "GET",
         headers: {
           "Authorization": authHeader,
@@ -61,19 +61,9 @@ export default async function handler(req, res) {
         }
       });
       const data = await response.json();
-
-      if (!response.ok) {
-        return res.status(response.status).json({
-          success: false,
-          statusCode: response.status,
-          error: data.errors?.[0] || data.error || "Failed to fetch devices",
-          raw: data
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        statusCode: 200,
+      return res.status(response.status).json({
+        success: response.ok,
+        statusCode: response.status,
         total_count: data.total_count ?? (data.players ? data.players.length : 0),
         players: data.players ?? []
       });
@@ -82,7 +72,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Send Push
+  // 3. Send Push with Distinct Urgent vs High vs Normal Payloads
   if (req.method === "POST") {
     try {
       const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
@@ -93,11 +83,10 @@ export default async function handler(req, res) {
 
       let targets = [];
       if (Array.isArray(rawSubIds) && rawSubIds.length > 0) {
-        targets = rawSubIds.map(id => String(id));
+        targets = rawSubIds.map(id => String(id).trim());
       } else {
-        // All Users: Fetch live active players from OneSignal
         try {
-          const fetchPlayers = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=300`, {
+          const fetchPlayers = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
             method: "GET",
             headers: {
               "Authorization": authHeader,
@@ -107,7 +96,7 @@ export default async function handler(req, res) {
           const pData = await fetchPlayers.json();
           targets = (pData.players || [])
             .filter(p => !p.invalid_identifier)
-            .map(p => String(p.id));
+            .map(p => String(p.id).trim());
         } catch (e) {
           targets = [];
         }
@@ -121,21 +110,45 @@ export default async function handler(req, res) {
         });
       }
 
+      const mode = parsedBody.priority_mode || (Number(parsedBody.priority) === 5 ? "normal" : "urgent");
+
+      // 1. BASE COMMON PAYLOAD
       const oneSignalPayload = {
         app_id: ONESIGNAL_APP_ID,
         target_channel: "push",
         headings: { en: String(titleText) },
         contents: { en: String(bodyText) },
         include_subscription_ids: targets,
-        priority: Number(parsedBody.priority) || 10,
         data: parsedBody.data || {}
       };
 
+      // 2. MODE-SPECIFIC DISTINCT CONFIGURATIONS
+      if (mode === "urgent") {
+        // MODE 1: URGENT -> Channel ID + Max Priority + Sound + Public Visibility
+        oneSignalPayload.priority = 10;
+        oneSignalPayload.existing_android_channel_id = "Result Alerts";
+        oneSignalPayload.android_sound = "default";
+        oneSignalPayload.android_visibility = 1;
+        oneSignalPayload.android_accent_color = "FF047857";
+      } else if (mode === "high") {
+        // MODE 2: HIGH -> Heads-up Pop + Sound without overriding Channel ID
+        oneSignalPayload.priority = 10;
+        oneSignalPayload.android_sound = "default";
+        oneSignalPayload.android_visibility = 1;
+      } else {
+        // MODE 3: NORMAL -> Priority 5 (Silent/Low), No Sound, Hidden from Heads-up
+        oneSignalPayload.priority = 5;
+        oneSignalPayload.android_sound = null;
+        oneSignalPayload.android_visibility = 0;
+      }
+
+      // Optional Extras
       if (parsedBody.url) oneSignalPayload.url = String(parsedBody.url);
       if (parsedBody.big_picture || parsedBody.imageUrl) oneSignalPayload.big_picture = String(parsedBody.big_picture || parsedBody.imageUrl);
       if (parsedBody.large_icon || parsedBody.largeIcon) oneSignalPayload.large_icon = String(parsedBody.large_icon || parsedBody.largeIcon);
       if (parsedBody.buttons && Array.isArray(parsedBody.buttons)) oneSignalPayload.buttons = parsedBody.buttons;
 
+      // Dispatch to OneSignal API
       const response = await fetch("https://api.onesignal.com/notifications?c=push", {
         method: "POST",
         headers: {
@@ -146,7 +159,7 @@ export default async function handler(req, res) {
       });
 
       const resData = await response.json();
-      const hasValidId = Boolean(resData.id && resData.id.trim() !== "");
+      const hasValidId = Boolean(resData.id && String(resData.id).trim() !== "");
 
       return res.status(response.status).json({
         success: response.ok && hasValidId,
