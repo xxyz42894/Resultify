@@ -74,7 +74,7 @@
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <!-- Total Subscribed Devices -->
-      <div class="glass-card rounded-2xl p-5 border admin-border shadow-lg slide-up" style="animation-delay: 150ms;" style="animation-delay: 100ms;" style="animation-delay: 50ms;" style="animation-delay: 0ms;">
+      <div id="cardSubscribersClick" class="glass-card rounded-2xl p-5 border admin-border shadow-lg slide-up cursor-pointer hover:border-teal-400 transition-colors" style="animation-delay: 150ms;" style="animation-delay: 100ms;" style="animation-delay: 50ms;" style="animation-delay: 0ms;">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm admin-text-secondary">Subscribed Devices</p>
@@ -149,6 +149,10 @@
         <button data-tab="quick-push" class="tab-btn flex items-center gap-2 px-3 sm:px-4 py-3.5 text-sm font-medium border-b-2 border-transparent transition-colors whitespace-nowrap">
           <span class="material-symbols-outlined text-18">campaign</span>
           Quick Broadcast
+        </button>
+        <button data-tab="subscribers" id="tabBtnSubscribers" class="tab-btn flex items-center gap-2 px-3 sm:px-4 py-3.5 text-sm font-medium border-b-2 border-transparent transition-colors whitespace-nowrap">
+          <span class="material-symbols-outlined text-18">phone_android</span>
+          Subscribers & Devices
         </button>
       </div>
 
@@ -291,6 +295,35 @@
               </div>
             </form>
           </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Subscribers -->
+      <div id="tab-subscribers" class="tab-content hidden p-4 sm:p-6 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+              <span class="material-symbols-outlined text-teal-400">devices</span>
+              Active Subscribers & Device Registry
+            </h2>
+            <p class="text-xs admin-text-secondary mt-1">Live profiles synced directly with OneSignal Push Engine</p>
+          </div>
+          <button id="refreshSubscribersBtn" class="inline-flex items-center gap-2 px-4 py-2 bg-[var(--bg-hover)] border admin-border rounded-xl text-sm font-medium hover:text-teal-400 transition-colors">
+            <span class="material-symbols-outlined text-18">refresh</span>
+            Refresh Devices
+          </button>
+        </div>
+
+        <!-- Subscribers Table / Grid -->
+        <div id="subscribersListGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+
+        <!-- Empty / Loading State for Subscribers -->
+        <div id="subscribersLoading" class="flex flex-col items-center justify-center py-16">
+          <div class="loading-spinner h-8 w-8 border-2 border-teal-500/30 border-t-teal-500 rounded-full"></div>
+          <p class="text-sm admin-text-secondary mt-3">Fetching live devices from OneSignal...</p>
+        </div>
+        <div id="subscribersEmpty" class="hidden text-center py-16">
+          <p class="text-sm admin-text-secondary">No subscribed devices found yet.</p>
         </div>
       </div>
     </div>
@@ -596,6 +629,65 @@
 
   <!-- Toast Container -->
   <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2 w-full max-w-sm"></div>
+
+  <!-- Subscriber Profile Detail Modal -->
+  <div id="subscriberModal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 admin-modal-overlay backdrop-blur-sm">
+    <div class="glass-card w-full max-w-2xl max-h-[92vh] overflow-hidden rounded-2xl border admin-border shadow-2xl flex flex-col">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b admin-border">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
+            <span class="material-symbols-outlined">android</span>
+          </div>
+          <div>
+            <h2 class="text-base sm:text-lg font-semibold flex items-center gap-2">
+              Subscriber Profile
+              <span id="subModalStatusBadge" class="text-xs px-2 py-0.5 rounded-full badge-green">Subscribed</span>
+            </h2>
+            <p id="subModalDeviceId" class="text-xs text-slate-400 truncate max-w-xs font-mono"></p>
+          </div>
+        </div>
+        <button id="closeSubModalBtn" class="w-9 h-9 rounded-xl bg-[var(--bg-hover)] border admin-border flex items-center justify-center hover:bg-slate-800 transition-colors">
+          <span class="material-symbols-outlined text-20">close</span>
+        </button>
+      </div>
+
+      <!-- Body Scrollable -->
+      <div class="overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-5 text-sm">
+        <!-- Profile Section -->
+        <div class="rounded-xl p-4 bg-slate-900/60 border admin-border space-y-3">
+          <h3 class="text-xs font-semibold text-teal-400 uppercase tracking-wider">Device & System</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
+            <div><span class="text-slate-400 block text-xs">Device Model:</span><span id="subModalDeviceModel" class="font-medium text-slate-100"></span></div>
+            <div><span class="text-slate-400 block text-xs">Android OS:</span><span id="subModalDeviceOs" class="font-medium text-slate-100"></span></div>
+            <div><span class="text-slate-400 block text-xs">Country:</span><span id="subModalCountry" class="font-medium text-slate-100"></span></div>
+            <div><span class="text-slate-400 block text-xs">App Version:</span><span id="subModalAppVersion" class="font-medium text-slate-100"></span></div>
+          </div>
+        </div>
+
+        <!-- Activity Section -->
+        <div class="rounded-xl p-4 bg-slate-900/60 border admin-border space-y-3">
+          <h3 class="text-xs font-semibold text-teal-400 uppercase tracking-wider">Activity & Engagement</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
+            <div><span class="text-slate-400 block text-xs">Created At (First Active):</span><span id="subModalCreatedAt" class="font-medium text-slate-100"></span></div>
+            <div><span class="text-slate-400 block text-xs">Last Active:</span><span id="subModalLastActive" class="font-medium text-slate-100"></span></div>
+            <div><span class="text-slate-400 block text-xs">Total Sessions:</span><span id="subModalSessions" class="font-medium text-slate-100"></span></div>
+            <div><span class="text-slate-400 block text-xs">Usage Duration:</span><span id="subModalDuration" class="font-medium text-slate-100"></span></div>
+          </div>
+        </div>
+
+        <!-- Technical & Push Identifiers -->
+        <div class="rounded-xl p-4 bg-slate-900/60 border admin-border space-y-3">
+          <h3 class="text-xs font-semibold text-teal-400 uppercase tracking-wider">Network & Push Token</h3>
+          <div class="space-y-2 text-xs">
+            <div><span class="text-slate-400 block">IP Address:</span><span id="subModalIp" class="font-mono text-slate-200"></span></div>
+            <div><span class="text-slate-400 block">OneSignal SDK:</span><span id="subModalSdk" class="font-mono text-slate-200"></span></div>
+            <div><span class="text-slate-400 block">Push Token (FCM):</span><p id="subModalToken" class="font-mono text-[11px] text-slate-300 break-all p-2 rounded bg-slate-950/80 border border-slate-800 mt-1"></p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Floating Diagnostic Logger -->
   <script src="./js/floating-logger.js"></script>
