@@ -465,6 +465,44 @@ button > * {
   }
 }
 
+/* Bottom Sheet Animations */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.nav-item.active {
+  color: #14b8a6 !important;
+}
+
+.filter-pill.active {
+  background-color: rgba(20, 184, 166, 0.15) !important;
+  border-color: #14b8a6 !important;
+  color: #14b8a6 !important;
+}
+
+/* Login page glass card adjustments */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-glow), 0 1px 1px 0 rgba(255, 255, 255, 0.03) inset;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Smooth focus states for accessibility */
 *:focus-visible {
   outline: 2px solid var(--accent-primary);
