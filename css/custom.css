@@ -1,0 +1,133 @@
+/* Sunlight-Proof High-Contrast Palette (Zero Black, Zero White) */
+:root {
+  --bg-void: #E8E2D5;
+  --bg-surface: #DDD6C7;
+  --bg-elevated: #D4CCBC;
+  --bg-input: #D3CABA;
+  --border-subtle: #BAAF98;
+  --border-focus: #047857;
+  --text-primary: #1B2834;
+  --text-muted: #4A5D6E;
+  --text-subtle: #6B7D8D;
+  --accent-mint: #047857;
+  --accent-amber: #B45309;
+  --accent-cyan: #0E7490;
+  --accent-rose: #BE123C;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--bg-void) !important;
+  color: var(--text-primary) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Surfaces & Cards */
+.surface-card {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px -2px rgba(27, 40, 52, 0.08);
+}
+
+.surface-elevated {
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border-subtle) !important;
+}
+
+/* Inputs & Form Elements */
+input, select, textarea {
+  background-color: var(--bg-input) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: var(--text-primary) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--border-focus) !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(4, 120, 87, 0.25);
+}
+
+/* Custom Sunlight Switch */
+.toggle-track {
+  width: 44px;
+  height: 24px;
+  background-color: var(--border-subtle);
+  border-radius: 9999px;
+  position: relative;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+  border: 1px solid var(--border-subtle);
+}
+
+.toggle-knob {
+  width: 18px;
+  height: 18px;
+  background-color: var(--bg-surface);
+  border-radius: 9999px;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease;
+}
+
+input:checked + .toggle-track {
+  background-color: var(--accent-mint);
+  border-color: var(--accent-mint);
+}
+
+input:checked + .toggle-track .toggle-knob {
+  transform: translateX(20px);
+  background-color: var(--bg-void);
+}
+
+/* Android Notification Mockup Shade */
+.notif-mockup {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1.25rem;
+  box-shadow: 0 4px 16px -4px rgba(27, 40, 52, 0.12);
+}
+
+/* Bottom Sheet Animations */
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-sheet-up {
+  animation: sheetSlideUp 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 4px;
+}
+
+/* Helpers */
+.text-12 { font-size: 12px; }
+.text-14 { font-size: 14px; }
+.text-16 { font-size: 16px; }
+.text-18 { font-size: 18px; }
+.text-20 { font-size: 20px; }
