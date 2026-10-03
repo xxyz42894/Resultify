@@ -1,5 +1,5 @@
-// OneSignal Client API - 100% Synchronized with Vercel Serverless Function (/api/onesignal)
-// Zero Keys, Zero Credentials exposed on client.
+// OneSignal API Client - 100% Zero-Credential Architecture
+// All requests are securely routed through Vercel Serverless Function (/api/onesignal)
 
 const VERCEL_BACKEND_URL = "https://resultify-psi.vercel.app";
 
@@ -10,9 +10,6 @@ const isLocal = typeof window !== "undefined" && (
   window.location.hostname.startsWith("192.168.")
 );
 
-/**
- * Master Request Bridge
- */
 async function callOneSignalApi(endpoint, options = {}) {
   const baseUrl = isLocal ? `${VERCEL_BACKEND_URL}/api/onesignal` : "/api/onesignal";
   const targetUrl = `${baseUrl}${endpoint}`;
@@ -29,7 +26,7 @@ async function callOneSignalApi(endpoint, options = {}) {
   try {
     data = await response.json();
   } catch (e) {
-    throw new Error(`Server error (HTTP ${response.status})`);
+    throw new Error(`Server response error (HTTP ${response.status})`);
   }
 
   if (!response.ok || data.success === false) {
@@ -39,9 +36,6 @@ async function callOneSignalApi(endpoint, options = {}) {
   return data;
 }
 
-/**
- * 1. Overview Stats (Total Subscriptions, Messageable Subscriptions)
- */
 export async function getOneSignalOverview() {
   try {
     const res = await callOneSignalApi("?action=overview");
@@ -64,9 +58,6 @@ export async function getOneSignalOverview() {
   }
 }
 
-/**
- * 2. Full Subscribers & Devices Registry
- */
 export async function getOneSignalSubscribers({ limit = 50, offset = 0 } = {}) {
   try {
     const res = await callOneSignalApi(`?action=subscribers&limit=${limit}&offset=${offset}`);
@@ -86,9 +77,6 @@ export async function getOneSignalSubscribers({ limit = 50, offset = 0 } = {}) {
   }
 }
 
-/**
- * 3. Send Push Broadcast
- */
 export async function sendPushNotification(notificationData) {
   const { title, body, data = {}, imageUrl, url, segments } = notificationData || {};
   if (!title || !body) return { success: false, errors: ["Title & Message required"] };
@@ -110,9 +98,6 @@ export async function sendPushNotification(notificationData) {
   }
 }
 
-/**
- * 4. Send Targeted Push for specific Result Card
- */
 export async function sendResultPushNotification(result, customTitle, customBody) {
   const title = customTitle || result?.title || "New Result Available";
   const body = customBody || (result?.description?.substring(0, 150) || "Tap to check your result now!");
