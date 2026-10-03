@@ -159,7 +159,7 @@ if (refreshDevsBtn) {
   refreshDevsBtn.addEventListener("click", loadTestingDevices);
 }
 
-// 3. PRIORITY BADGE & UI UPDATE FOR 3 MODES
+// 3. PRIORITY BADGE UPDATE
 document.querySelectorAll('input[name="bcPriority"]').forEach(r => {
   r.addEventListener("change", (e) => {
     if (!mockupPriorityBadge) return;
@@ -220,7 +220,7 @@ allToggles.forEach(tog => {
   });
 });
 
-// 6. FORM DISPATCH ENGINE (3-Modes Fully Configured)
+// 6. FORM DISPATCH ENGINE (With Safe Firebase Fallback)
 if (form) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -271,7 +271,6 @@ if (form) {
       }
     }
 
-    // Direct Payload Construction for Urgent vs High vs Normal
     const oneSignalPayload = {
       target_channel: "push",
       headings: { en: title },
@@ -281,19 +280,16 @@ if (form) {
     };
 
     if (selectedMode === "urgent") {
-      // Urgent: Force channel id, max priority, sound, and heads up pop
       oneSignalPayload.priority = 10;
       oneSignalPayload.existing_android_channel_id = "Result Alerts";
       oneSignalPayload.android_sound = "default";
       oneSignalPayload.android_visibility = 1;
       oneSignalPayload.android_accent_color = "FF047857";
     } else if (selectedMode === "high") {
-      // High: Heads-up pop + sound without forcing channel override
       oneSignalPayload.priority = 10;
       oneSignalPayload.android_sound = "default";
       oneSignalPayload.android_visibility = 1;
     } else {
-      // Normal: Quiet tray alert, no heads-up, no sound interrupt
       oneSignalPayload.priority = 5;
       oneSignalPayload.android_sound = null;
       oneSignalPayload.android_visibility = 0;
@@ -308,6 +304,7 @@ if (form) {
     }
 
     try {
+      // 1. OneSignal Dispatch
       const pushRes = await sendPushNotification(oneSignalPayload);
 
       if (inspectorCard) inspectorCard.classList.remove("hidden");
@@ -330,22 +327,27 @@ if (form) {
           respIdVal.style.color = "var(--accent-mint)";
         }
 
-        // Firebase Sync
+        // 2. Safe Firebase Announcement Sync (Isolated try-catch)
         let bannerType = null;
         if (toggleUpdate?.checked) bannerType = "UPDATE";
         if (toggleNotice?.checked) bannerType = "NOTICE";
         if (toggleBug?.checked) bannerType = "BUG";
 
         if (bannerType) {
-          await set(ref(database, "app_announcement"), {
-            active: true,
-            type: bannerType,
-            title,
-            message: body,
-            url: url || "",
-            updatedAt: Date.now()
-          });
-          showToast(`Sent & pinned as ${bannerType} banner in App!`, "success");
+          try {
+            await set(ref(database, "app_announcement"), {
+              active: true,
+              type: bannerType,
+              title,
+              message: body,
+              url: url || "",
+              updatedAt: Date.now()
+            });
+            showToast(`Sent & pinned as ${bannerType} banner in App!`, "success");
+          } catch (firebaseErr) {
+            console.warn("[Firebase Rule Denied]:", firebaseErr.message);
+            showToast(`Push sent! (Firebase sync skipped: ${firebaseErr.code})`, "info");
+          }
         } else {
           showToast(`Delivered successfully as ${selectedMode.toUpperCase()}!`, "success");
         }
