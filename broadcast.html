@@ -60,24 +60,35 @@
         <textarea id="bcBody" required rows="3" placeholder="Enter message text..." class="w-full px-3.5 py-2.5 rounded-xl text-xs resize-none" style="color: var(--text-primary);"></textarea>
       </div>
 
-      <!-- Delivery Priority -->
+      <!-- Delivery Priority (Urgent Pop vs High vs Normal) -->
       <div class="space-y-1.5">
-        <label class="block text-[11px] font-bold" style="color: var(--text-muted);">DELIVERY PRIORITY & DISPLAY:</label>
-        <div class="grid grid-cols-2 gap-2">
-          <label class="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
-            <input type="radio" name="bcPriority" value="10" checked class="accent-[#047857]">
-            <div>
-              <span class="block text-xs font-bold" style="color: var(--accent-mint);">High Priority</span>
-              <span class="block text-[9px]" style="color: var(--text-muted);">Heads-up pop display</span>
+        <label class="block text-[11px] font-bold" style="color: var(--text-muted);">DELIVERY PRIORITY & DISPLAY BEHAVIOR:</label>
+        <div class="grid grid-cols-3 gap-2">
+          <!-- 1. Urgent -->
+          <label class="flex flex-col p-2 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+            <div class="flex items-center gap-1.5">
+              <input type="radio" name="bcPriority" value="urgent" checked class="accent-[#047857]">
+              <span class="text-xs font-bold" style="color: var(--accent-mint);">Urgent</span>
             </div>
+            <span class="text-[9px] mt-1" style="color: var(--text-muted);">Heads-up / Pop on screen</span>
           </label>
 
-          <label class="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
-            <input type="radio" name="bcPriority" value="5" class="accent-[#047857]">
-            <div>
-              <span class="block text-xs font-bold" style="color: var(--text-primary);">Normal Priority</span>
-              <span class="block text-[9px]" style="color: var(--text-muted);">Quiet shade only</span>
+          <!-- 2. High -->
+          <label class="flex flex-col p-2 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+            <div class="flex items-center gap-1.5">
+              <input type="radio" name="bcPriority" value="high" class="accent-[#047857]">
+              <span class="text-xs font-bold" style="color: var(--accent-amber);">High</span>
             </div>
+            <span class="text-[9px] mt-1" style="color: var(--text-muted);">Sound, tray alert only</span>
+          </label>
+
+          <!-- 3. Normal -->
+          <label class="flex flex-col p-2 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+            <div class="flex items-center gap-1.5">
+              <input type="radio" name="bcPriority" value="normal" class="accent-[#047857]">
+              <span class="text-xs font-bold" style="color: var(--text-primary);">Normal</span>
+            </div>
+            <span class="text-[9px] mt-1" style="color: var(--text-muted);">Quiet, minimal alert</span>
           </label>
         </div>
       </div>
@@ -153,7 +164,7 @@
             <span class="font-bold" style="color: var(--text-muted);">Resultify</span>
             <span>• Just now</span>
           </div>
-          <span class="text-[9px] font-mono px-1 rounded font-bold" id="mockupPriorityBadge" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">HIGH POP</span>
+          <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-bold" id="mockupPriorityBadge" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">URGENT POP</span>
         </div>
         
         <div class="space-y-1">
@@ -176,7 +187,7 @@
       </button>
     </form>
 
-    <!-- LIVE RESPONSE INSPECTOR (Shows both what was filled & what OneSignal answered) -->
+    <!-- LIVE RESPONSE INSPECTOR -->
     <div id="responseInspectorCard" class="hidden surface-card p-4 space-y-3">
       <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-subtle);">
         <div class="flex items-center gap-1.5">
@@ -197,7 +208,7 @@
         </div>
       </div>
 
-      <!-- What was filled & sent -->
+      <!-- Outgoing payload -->
       <div class="space-y-1">
         <div class="flex items-center justify-between text-[10px] font-bold" style="color: var(--accent-amber);">
           <span>1. OUTGOING PAYLOAD SENT TO ONESIGNAL:</span>
@@ -206,7 +217,7 @@
         <pre id="outgoingPayloadJson" class="p-3 rounded-xl font-mono text-[10px] overflow-x-auto max-h-40 border custom-scrollbar select-all" style="background-color: var(--bg-input); border-color: var(--border-subtle); color: var(--text-primary);"></pre>
       </div>
 
-      <!-- What OneSignal replied -->
+      <!-- Raw Incoming response -->
       <div class="space-y-1">
         <span class="text-[10px] font-bold" style="color: var(--accent-cyan);">2. RAW INCOMING ONESIGNAL RESPONSE:</span>
         <pre id="rawJsonResponse" class="p-3 rounded-xl font-mono text-[10px] overflow-x-auto max-h-40 border custom-scrollbar select-all" style="background-color: var(--bg-input); border-color: var(--border-subtle); color: var(--text-primary);"></pre>
