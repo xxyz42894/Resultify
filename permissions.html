@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- Sabse pehle security script load honi chahiye -->
+  <script src="./js/security-guard.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Resultify - Team & Permissions</title>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -10,10 +12,10 @@
   <script type="module" src="./js/auth-guard.js"></script>
   <script type="module" src="./js/permissions-pages.js"></script>
 </head>
-<body class="min-h-screen pb-14 select-none" style="background-color: var(--bg-void); color: var(--text-primary);">
+<body class="min-h-screen pb-14 select-none auth-passed" style="background-color: var(--bg-void); color: var(--text-primary);">
   <header class="sticky top-0 z-30 border-b px-4 py-3 flex items-center justify-between backdrop-blur-xl" style="background-color: var(--bg-void); border-color: var(--border-subtle);">
     <div class="flex items-center gap-2.5">
-      <a href="dashboard.html" class="w-8 h-8 rounded-xl flex items-center justify-center" style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-muted);">
+      <a href="dashboard.html" class="w-8 h-8 rounded-xl flex items-center justify-center surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">
         <span class="material-symbols-outlined text-18">arrow_back</span>
       </a>
       <div>
@@ -28,15 +30,15 @@
     <div class="surface-card p-4 space-y-2.5">
       <h3 class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent-mint);">Access Hierarchy</h3>
       <div class="space-y-2 text-[11px]">
-        <div class="p-2.5 rounded-xl" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+        <div class="p-2.5 rounded-xl border surface-card" style="border-color: var(--border-subtle); background-color: var(--bg-input);">
           <span class="font-bold" style="color: var(--accent-mint);">Owner:</span>
           <span style="color: var(--text-muted);"> Full access (Results, Broadcast, Devices, Settings, Add/Delete Admins)</span>
         </div>
-        <div class="p-2.5 rounded-xl" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+        <div class="p-2.5 rounded-xl border surface-card" style="border-color: var(--border-subtle); background-color: var(--bg-input);">
           <span class="font-bold" style="color: var(--accent-amber);">Editor:</span>
           <span style="color: var(--text-muted);"> Can publish/edit results & send notifications. Cannot delete or touch settings.</span>
         </div>
-        <div class="p-2.5 rounded-xl" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+        <div class="p-2.5 rounded-xl border surface-card" style="border-color: var(--border-subtle); background-color: var(--bg-input);">
           <span class="font-bold" style="color: var(--accent-cyan);">Viewer:</span>
           <span style="color: var(--text-muted);"> Read-only access to view results & device subscribers.</span>
         </div>
@@ -48,16 +50,16 @@
       <h3 class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent-amber);">Authorize Partner Admin</h3>
       <div>
         <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Partner Email Address</label>
-        <input type="email" id="partnerEmail" required placeholder="partner@gmail.com" class="w-full px-3.5 py-2.5 rounded-xl text-xs" style="color: var(--text-primary);">
+        <input type="email" id="partnerEmail" required placeholder="partner@gmail.com" class="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
       </div>
       <div>
         <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Assign Role & Permissions</label>
-        <select id="partnerRole" class="w-full px-3.5 py-2.5 rounded-xl text-xs" style="color: var(--text-primary);">
+        <select id="partnerRole" class="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none surface-card border cursor-pointer" style="border-color: var(--border-subtle); color: var(--text-primary);">
           <option value="editor">Editor (Can add/edit results & push alerts)</option>
           <option value="viewer">Viewer (Read-only access)</option>
         </select>
       </div>
-      <button type="submit" class="w-full py-2.5 rounded-xl font-bold text-xs transition-all shadow-md" style="background-color: var(--accent-mint); color: var(--bg-void);">
+      <button type="submit" id="inviteBtn" class="w-full py-2.5 rounded-xl font-bold text-xs transition-all shadow-md active:scale-98" style="background-color: var(--accent-mint); color: #FFFFFF;">
         Authorize Partner Access
       </button>
     </form>

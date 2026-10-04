@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- Sabse pehle security script load honi chahiye -->
+  <script src="./js/security-guard.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Resultify Admin - Secure Login</title>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -10,7 +12,7 @@
 </head>
 <body class="min-h-screen flex items-center justify-center p-4 select-none auth-passed" style="background-color: var(--bg-void, #E8E2D5); color: var(--text-primary, #1B2834);">
   
-  <div class="w-full max-w-sm surface-card p-6 rounded-3xl border shadow-xl space-y-5" style="border-color: var(--border-subtle, #BAAF98); background-color: var(--bg-surface, #DDD6C7);">
+  <div class="w-full max-w-sm surface-card p-6 rounded-3xl border shadow-xl space-y-4" style="border-color: var(--border-subtle, #BAAF98); background-color: var(--bg-surface, #DDD6C7);">
     
     <!-- Branding Header -->
     <div class="text-center space-y-1.5">
@@ -21,8 +23,35 @@
       <p class="text-xs" style="color: var(--text-muted, #4A5D6E);">Sign in to administrative console</p>
     </div>
 
-    <!-- Login Form -->
-    <form id="adminLoginForm" class="space-y-3.5 text-xs">
+    <!-- Error Alert Box -->
+    <div id="loginErrorBox" class="hidden p-3 rounded-xl border text-[11px] font-medium text-rose-700 bg-rose-500/10 border-rose-500/20 text-center"></div>
+
+    <!-- Google Sign-In Section (Settings switch se live control hoga) -->
+    <div id="googleAuthSection" class="space-y-2">
+      <button type="button" id="googleSignInBtn" class="w-full py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2.5 transition-all surface-card border active:scale-[0.98] cursor-pointer" style="border-color: var(--border-subtle, #BAAF98); color: var(--text-primary, #1B2834); background-color: var(--bg-elevated, #D4CCBC);">
+        <svg class="w-4 h-4" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </button>
+
+      <div class="flex items-center gap-2 py-1">
+        <div class="h-px flex-1" style="background-color: var(--border-subtle, #BAAF98);"></div>
+        <span class="text-[10px] uppercase font-bold" style="color: var(--text-muted, #4A5D6E);">or email</span>
+        <div class="h-px flex-1" style="background-color: var(--border-subtle, #BAAF98);"></div>
+      </div>
+    </div>
+
+    <!-- Notice (Jab switch OFF kiya jaye) -->
+    <div id="googleDisabledNotice" class="hidden p-2 rounded-xl border text-[10px] text-center font-medium" style="background-color: var(--bg-input, #D3CABA); border-color: var(--border-subtle, #BAAF98); color: var(--text-muted, #4A5D6E);">
+      Google login policy se disabled hai. Admin email & password use karein.
+    </div>
+
+    <!-- Email/Password Login Form -->
+    <form id="adminLoginForm" class="space-y-3 text-xs">
       <div>
         <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted, #4A5D6E);">Admin Email</label>
         <div class="relative">
@@ -39,14 +68,11 @@
         </div>
       </div>
 
-      <button type="submit" id="loginBtn" class="w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]" style="background-color: var(--accent-mint, #047857); color: #FFFFFF;">
+      <button type="submit" id="loginBtn" class="w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer" style="background-color: var(--accent-mint, #047857); color: #FFFFFF;">
         <span class="material-symbols-outlined text-18">login</span>
         <span>Sign In to Dashboard</span>
       </button>
     </form>
-
-    <!-- Error Alert Box -->
-    <div id="loginErrorBox" class="hidden p-3 rounded-xl border text-[11px] font-medium text-rose-700 bg-rose-500/10 border-rose-500/20 text-center"></div>
 
     <div class="text-center pt-2 border-t" style="border-color: var(--border-subtle, #BAAF98);">
       <p class="text-[10px]" style="color: var(--text-subtle, #6B7D8D);">Resultify Admin Hub & Push Console · 2026</p>
@@ -54,37 +80,75 @@
   </div>
 
   <script type="module">
-    import { signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-    import { auth } from "./js/firebase-config.js";
+    import { 
+      signInWithEmailAndPassword, 
+      signInWithPopup, 
+      GoogleAuthProvider, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+    import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+    import { auth, database } from "./js/firebase-config.js";
 
     const form = document.getElementById("adminLoginForm");
     const emailInput = document.getElementById("loginEmail");
     const passInput = document.getElementById("loginPassword");
     const loginBtn = document.getElementById("loginBtn");
+    const googleBtn = document.getElementById("googleSignInBtn");
+    const googleSection = document.getElementById("googleAuthSection");
+    const googleDisabledNotice = document.getElementById("googleDisabledNotice");
     const errBox = document.getElementById("loginErrorBox");
 
-    // Agar pehle se logged in hai toh direct dashboard bhejo
+    const googleProvider = new GoogleAuthProvider();
+
+    // 1. Real-time Firebase DB sync: Toggle check
+    onValue(ref(database, "admin_settings/allowGoogleAuth"), (snap) => {
+      const allowed = snap.exists() ? Boolean(snap.val()) : true;
+      if (allowed) {
+        googleSection.classList.remove("hidden");
+        googleDisabledNotice.classList.add("hidden");
+      } else {
+        googleSection.classList.add("hidden");
+        googleDisabledNotice.classList.remove("hidden");
+      }
+    });
+
+    // 2. Agar pehle se authenticated hai toh redirect to dashboard
     onAuthStateChanged(auth, (user) => {
       if (user) {
         window.location.replace("dashboard.html");
       }
     });
 
+    // 3. Email & Password Submission
     if (form) {
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         errBox.classList.add("hidden");
         loginBtn.disabled = true;
-        loginBtn.innerHTML = `<span class="material-symbols-outlined text-18 animate-spin">refresh</span> Verifying credentials...`;
+        loginBtn.innerHTML = `<span class="material-symbols-outlined text-18 animate-spin">refresh</span> Verifying...`;
 
         try {
           await signInWithEmailAndPassword(auth, emailInput.value.trim(), passInput.value.trim());
           window.location.replace("dashboard.html");
         } catch (err) {
-          errBox.textContent = err.message || "Invalid email or password.";
+          errBox.textContent = err.message || "Invalid credentials.";
           errBox.classList.remove("hidden");
           loginBtn.disabled = false;
           loginBtn.innerHTML = `<span class="material-symbols-outlined text-18">login</span><span>Sign In to Dashboard</span>`;
+        }
+      });
+    }
+
+    // 4. One-tap Google Sign-In Popup
+    if (googleBtn) {
+      googleBtn.addEventListener("click", async () => {
+        errBox.classList.add("hidden");
+        try {
+          await signInWithPopup(auth, googleProvider);
+          window.location.replace("dashboard.html");
+        } catch (err) {
+          errBox.textContent = "Google Sign-In Error: " + (err.message || "Popup closed or blocked.");
+          errBox.classList.remove("hidden");
         }
       });
     }
