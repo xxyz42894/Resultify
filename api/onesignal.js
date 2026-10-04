@@ -1,1 +1,247 @@
-ZXhwb3J0IGRlZmF1bHQgYXN5bmMgZnVuY3Rpb24gaGFuZGxlcihyZXEsIHJlcykgewogIHJlcy5zZXRIZWFkZXIoIkFjY2Vzcy1Db250cm9sLUFsbG93LU9yaWdpbiIsICIqIik7CiAgcmVzLnNldEhlYWRlcigiQWNjZXNzLUNvbnRyb2wtQWxsb3ctTWV0aG9kcyIsICJHRVQsIFBPU1QsIE9QVElPTlMiKTsKICByZXMuc2V0SGVhZGVyKCJBY2Nlc3MtQ29udHJvbC1BbGxvdy1IZWFkZXJzIiwgIkNvbnRlbnQtVHlwZSwgQXV0aG9yaXphdGlvbiwgSWRlbXBvdGVuY3ktS2V5Iik7CgogIGlmIChyZXEubWV0aG9kID09PSAiT1BUSU9OUyIpIHsKICAgIHJldHVybiByZXMuc3RhdHVzKDIwMCkuZW5kKCk7CiAgfQoKICBjb25zdCBPTkVTSUdOQUxfQVBQX0lEID0gcHJvY2Vzcy5lbnYuT05FU0lHTkFMX0FQUF9JRDsKICBjb25zdCBPTkVTSUdOQUxfUkVTVF9BUElfS0VZID0gcHJvY2Vzcy5lbnYuT05FU0lHTkFMX1JFU1RfQVBJX0tFWTsKCiAgaWYgKCFPTkVTSUdOQUxfQVBQX0lEIHx8ICFPTkVTSUdOQUxfUkVTVF9BUElfS0VZKSB7CiAgICByZXR1cm4gcmVzLnN0YXR1cyg1MDApLmpzb24oewogICAgICBzdWNjZXNzOiBmYWxzZSwKICAgICAgc3RhdHVzQ29kZTogNTAwLAogICAgICBlcnJvcjogIlZlcmNlbCBDb25maWcgRXJyb3I6IE9ORVNJR05BTF9BUFBfSUQgb3IgT05FU0lHTkFMX1JFU1RfQVBJX0tFWSBpcyBtaXNzaW5nLiIKICAgIH0pOwogIH0KCiAgY29uc3QgcmF3S2V5ID0gT05FU0lHTkFMX1JFU1RfQVBJX0tFWS5yZXBsYWNlKC9eS2V5XHMrL2ksICIiKTsKICBjb25zdCBhdXRoSGVhZGVyID0gYEtleSAke3Jhd0tleX1gOwoKICBjb25zdCB7IGFjdGlvbiwgbGltaXQgPSA1MCwgb2Zmc2V0ID0gMCB9ID0gcmVxLnF1ZXJ5OwoKICAvLyAxLiBPdmVydmlldyBBUEkKICBpZiAocmVxLm1ldGhvZCA9PT0gIkdFVCIgJiYgKCFhY3Rpb24gfHwgYWN0aW9uID09PSAib3ZlcnZpZXciKSkgewogICAgdHJ5IHsKICAgICAgY29uc3QgcmVzcG9uc2UgPSBhd2FpdCBmZXRjaChgaHR0cHM6Ly9hcGkub25lc2lnbmFsLmNvbS9hcHBzLyR7T05FU0lHTkFMX0FQUF9JRH1gLCB7CiAgICAgICAgbWV0aG9kOiAiR0VUIiwKICAgICAgICBoZWFkZXJzOiB7CiAgICAgICAgICAiQXV0aG9yaXphdGlvbiI6IGF1dGhIZWFkZXIsCiAgICAgICAgICAiQ29udGVudC1UeXBlIjogImFwcGxpY2F0aW9uL2pzb24iCiAgICAgICAgfQogICAgICB9KTsKICAgICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlc3BvbnNlLmpzb24oKTsKICAgICAgcmV0dXJuIHJlcy5zdGF0dXMocmVzcG9uc2Uuc3RhdHVzKS5qc29uKHsKICAgICAgICBzdWNjZXNzOiByZXNwb25zZS5vaywKICAgICAgICBzdGF0dXNDb2RlOiByZXNwb25zZS5zdGF0dXMsCiAgICAgICAgZGF0YTogewogICAgICAgICAgdG90YWxTdWJzY3JpcHRpb25zOiBkYXRhLnBsYXllcnMgPz8gZGF0YS50b3RhbF9zdWJzY3JpcHRpb25zID8/IDAsCiAgICAgICAgICBtZXNzYWdlYWJsZVN1YnNjcmlwdGlvbnM6IGRhdGEubWVzc2FnZWFibGVfcGxheWVycyA/PyAwLAogICAgICAgICAgYXBwTmFtZTogZGF0YS5uYW1lID8/ICJSZXN1bHRpZnkiLAogICAgICAgICAgYXBwSWQ6IGRhdGEuaWQKICAgICAgICB9CiAgICAgIH0pOwogICAgfSBjYXRjaCAoZXJyKSB7CiAgICAgIHJldHVybiByZXMuc3RhdHVzKDUwMCkuanNvbih7IHN1Y2Nlc3M6IGZhbHNlLCBzdGF0dXNDb2RlOiA1MDAsIGVycm9yOiBlcnIubWVzc2FnZSB9KTsKICAgIH0KICB9CgogIC8vIDIuIFZpZXcgTWVzc2FnZXMgLyBOb3RpZmljYXRpb25zIEFQSSAoT2ZmaWNpYWwgRG9jdW1lbnRhdGlvbiBGaXhlZCBFbmRwb2ludCkKICBpZiAocmVxLm1ldGhvZCA9PT0gIkdFVCIgJiYgKGFjdGlvbiA9PT0gIm5vdGlmaWNhdGlvbnMiIHx8IGFjdGlvbiA9PT0gIm1lc3NhZ2VzIikpIHsKICAgIHRyeSB7CiAgICAgIC8vIE9mZmljaWFsIEFQSTogaHR0cHM6Ly9hcGkub25lc2lnbmFsLmNvbS9ub3RpZmljYXRpb25zP2FwcF9pZD17YXBwX2lkfSZsaW1pdD17bGltaXR9Jm9mZnNldD17b2Zmc2V0fQogICAgICBjb25zdCB0YXJnZXRBcGlVcmwgPSBgaHR0cHM6Ly9hcGkub25lc2lnbmFsLmNvbS9ub3RpZmljYXRpb25zP2FwcF9pZD0ke09ORVNJR05BTF9BUFBfSUR9JmxpbWl0PSR7bGltaXR9Jm9mZnNldD0ke29mZnNldH1gOwoKICAgICAgY29uc3QgcmVzcG9uc2UgPSBhd2FpdCBmZXRjaCh0YXJnZXRBcGlVcmwsIHsKICAgICAgICBtZXRob2Q6ICJHRVQiLAogICAgICAgIGhlYWRlcnM6IHsKICAgICAgICAgICJBdXRob3JpemF0aW9uIjogYXV0aEhlYWRlciwKICAgICAgICAgICJDb250ZW50LVR5cGUiOiAiYXBwbGljYXRpb24vanNvbiIKICAgICAgICB9CiAgICAgIH0pOwoKICAgICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlc3BvbnNlLmpzb24oKTsKCiAgICAgIHJldHVybiByZXMuc3RhdHVzKHJlc3BvbnNlLnN0YXR1cykuanNvbih7CiAgICAgICAgc3VjY2VzczogcmVzcG9uc2Uub2ssCiAgICAgICAgc3RhdHVzQ29kZTogcmVzcG9uc2Uuc3RhdHVzLAogICAgICAgIHRvdGFsX2NvdW50OiBkYXRhLnRvdGFsX2NvdW50ID8/IChkYXRhLm5vdGlmaWNhdGlvbnMgPyBkYXRhLm5vdGlmaWNhdGlvbnMubGVuZ3RoIDogMCksCiAgICAgICAgbm90aWZpY2F0aW9uczogZGF0YS5ub3RpZmljYXRpb25zID8/IFtdCiAgICAgIH0pOwogICAgfSBjYXRjaCAoZXJyKSB7CiAgICAgIHJldHVybiByZXMuc3RhdHVzKDUwMCkuanNvbih7IHN1Y2Nlc3M6IGZhbHNlLCBzdGF0dXNDb2RlOiA1MDAsIGVycm9yOiBlcnIubWVzc2FnZSB9KTsKICAgIH0KICB9CgogIC8vIDMuIFN1YnNjcmliZXJzIExpc3QgQVBJCiAgaWYgKHJlcS5tZXRob2QgPT09ICJHRVQiICYmIGFjdGlvbiA9PT0gInN1YnNjcmliZXJzIikgewogICAgdHJ5IHsKICAgICAgY29uc3QgcmVzcG9uc2UgPSBhd2FpdCBmZXRjaChgaHR0cHM6Ly9hcGkub25lc2lnbmFsLmNvbS9wbGF5ZXJzP2FwcF9pZD0ke09ORVNJR05BTF9BUFBfSUR9JmxpbWl0PTMwMDBgLCB7CiAgICAgICAgbWV0aG9kOiAiR0VUIiwKICAgICAgICBoZWFkZXJzOiB7CiAgICAgICAgICAiQXV0aG9yaXphdGlvbiI6IGF1dGhIZWFkZXIsCiAgICAgICAgICAiQ29udGVudC1UeXBlIjogImFwcGxpY2F0aW9uL2pzb24iCiAgICAgICAgfQogICAgICB9KTsKICAgICAgY29uc3QgZGF0YSA9IGF3YWl0IHJlc3BvbnNlLmpzb24oKTsKICAgICAgcmV0dXJuIHJlcy5zdGF0dXMocmVzcG9uc2Uuc3RhdHVzKS5qc29uKHsKICAgICAgICBzdWNjZXNzOiByZXNwb25zZS5vaywKICAgICAgICBzdGF0dXNDb2RlOiByZXNwb25zZS5zdGF0dXMsCiAgICAgICAgdG90YWxfY291bnQ6IGRhdGEudG90YWxfY291bnQgPz8gKGRhdGEucGxheWVycyA/IGRhdGEucGxheWVycy5sZW5ndGggOiAwKSwKICAgICAgICBwbGF5ZXJzOiBkYXRhLnBsYXllcnMgPz8gW10KICAgICAgfSk7CiAgICB9IGNhdGNoIChlcnIpIHsKICAgICAgcmV0dXJuIHJlcy5zdGF0dXMoNTAwKS5qc29uKHsgc3VjY2VzczogZmFsc2UsIHN0YXR1c0NvZGU6IDUwMCwgZXJyb3I6IGVyci5tZXNzYWdlIH0pOwogICAgfQogIH0KCiAgLy8gNC4gU2VuZCBQdXNoIE5vdGlmaWNhdGlvbiBBUEkKICBpZiAocmVxLm1ldGhvZCA9PT0gIlBPU1QiKSB7CiAgICB0cnkgewogICAgICBjb25zdCBwYXJzZWRCb2R5ID0gdHlwZW9mIHJlcS5ib2R5ID09PSAic3RyaW5nIiA/IEpTT04ucGFyc2UocmVxLmJvZHkgfHwgInt9IikgOiAocmVxLmJvZHkgfHwge30pOwogICAgICAKICAgICAgY29uc3QgdGl0bGVUZXh0ID0gcGFyc2VkQm9keS5oZWFkaW5ncz8uZW4gfHwgcGFyc2VkQm9keS50aXRsZSB8fCAiTm90aWZpY2F0aW9uIjsKICAgICAgY29uc3QgYm9keVRleHQgPSBwYXJzZWRCb2R5LmNvbnRlbnRzPy5lbiB8fCBwYXJzZWRCb2R5LmJvZHkgfHwgIiI7CiAgICAgIGNvbnN0IHJhd1N1YklkcyA9IHBhcnNlZEJvZHkuaW5jbHVkZV9zdWJzY3JpcHRpb25faWRzIHx8IHBhcnNlZEJvZHkuc3Vic2NyaXB0aW9uX2lkcyB8fCAocGFyc2VkQm9keS50YXJnZXRfZGV2aWNlX2lkID8gW3BhcnNlZEJvZHkudGFyZ2V0X2RldmljZV9pZF0gOiBbXSk7CgogICAgICBsZXQgdGFyZ2V0cyA9IFtdOwogICAgICBpZiAoQXJyYXkuaXNBcnJheShyYXdTdWJJZHMpICYmIHJhd1N1Yklkcy5sZW5ndGggPiAwKSB7CiAgICAgICAgdGFyZ2V0cyA9IHJhd1N1Yklkcy5tYXAoaWQgPT4gU3RyaW5nKGlkKS50cmltKCkpOwogICAgICB9IGVsc2UgewogICAgICAgIHRyeSB7CiAgICAgICAgICBjb25zdCBmZXRjaFBsYXllcnMgPSBhd2FpdCBmZXRjaChgaHR0cHM6Ly9hcGkub25lc2lnbmFsLmNvbS9wbGF5ZXJzP2FwcF9pZD0ke09ORVNJR05BTF9BUFBfSUR9JmxpbWl0PTMwMDBgLCB7CiAgICAgICAgICAgIG1ldGhvZDogIkdFVCIsCiAgICAgICAgICAgIGhlYWRlcnM6IHsKICAgICAgICAgICAgICAiQXV0aG9yaXphdGlvbiI6IGF1dGhIZWFkZXIsCiAgICAgICAgICAgICAgIkNvbnRlbnQtVHlwZSI6ICJhcHBsaWNhdGlvbi9qc29uIgogICAgICAgICAgICB9CiAgICAgICAgICB9KTsKICAgICAgICAgIGNvbnN0IHBEYXRhID0gYXdhaXQgZmV0Y2hQbGF5ZXJzLmpzb24oKTsKICAgICAgICAgIHRhcmdldHMgPSAocERhdGEucGxheWVycyB8fCBbXSkKICAgICAgICAgICAgLmZpbHRlcihwID0+ICFwLmludmFsaWRfaWRlbnRpZmllcikKICAgICAgICAgICAgLm1hcChwID0+IFN0cmluZyhwLmlkKS50cmltKCkpOwogICAgICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgICAgIHRhcmdldHMgPSBbXTsKICAgICAgICB9CiAgICAgIH0KCiAgICAgIGlmICghdGFyZ2V0cyB8fCB0YXJnZXRzLmxlbmd0aCA9PT0gMCkgewogICAgICAgIHJldHVybiByZXMuc3RhdHVzKDQwMCkuanNvbih7CiAgICAgICAgICBzdWNjZXNzOiBmYWxzZSwKICAgICAgICAgIHN0YXR1c0NvZGU6IDQwMCwKICAgICAgICAgIGVycm9yOiAiVGFyZ2V0IEVycm9yOiBLb2kgdmFsaWQgYWN0aXZlIFN1YnNjcmlwdGlvbiBJRCBuYWhpIG1pbGkuIgogICAgICAgIH0pOwogICAgICB9CgogICAgICBjb25zdCBtb2RlID0gcGFyc2VkQm9keS5wcmlvcml0eV9tb2RlIHx8IChOdW1iZXIocGFyc2VkQm9keS5wcmlvcml0eSkgPT09IDUgPyAibm9ybWFsIiA6ICJ1cmdlbnQiKTsKCiAgICAgIGNvbnN0IGJ1dHRvblVybHNEYXRhID0ge307CiAgICAgIGNvbnN0IGFuZHJvaWRCdXR0b25zID0gW107CiAgICAgIGNvbnN0IHdlYkJ1dHRvbnMgPSBbXTsKCiAgICAgIGlmIChwYXJzZWRCb2R5LmJ1dHRvbnMgJiYgQXJyYXkuaXNBcnJheShwYXJzZWRCb2R5LmJ1dHRvbnMpKSB7CiAgICAgICAgcGFyc2VkQm9keS5idXR0b25zLmZvckVhY2goKGJ0biwgaW5kZXgpID0+IHsKICAgICAgICAgIGlmIChidG4udGV4dCkgewogICAgICAgICAgICBjb25zdCBidG5JZCA9IGJ0bi5pZCB8fCBgYnRuX2FjdGlvbl8ke2luZGV4ICsgMX1gOwogICAgICAgICAgICAKICAgICAgICAgICAgYW5kcm9pZEJ1dHRvbnMucHVzaCh7CiAgICAgICAgICAgICAgaWQ6IGJ0bklkLAogICAgICAgICAgICAgIHRleHQ6IFN0cmluZyhidG4udGV4dCkKICAgICAgICAgICAgfSk7CgogICAgICAgICAgICB3ZWJCdXR0b25zLnB1c2goewogICAgICAgICAgICAgIGlkOiBidG5JZCwKICAgICAgICAgICAgICB0ZXh0OiBTdHJpbmcoYnRuLnRleHQpLAogICAgICAgICAgICAgIHVybDogYnRuLnVybCB8fCB1bmRlZmluZWQKICAgICAgICAgICAgfSk7CgogICAgICAgICAgICBpZiAoYnRuLnVybCkgewogICAgICAgICAgICAgIGJ1dHRvblVybHNEYXRhW2Ake2J0bklkfV91cmxgXSA9IFN0cmluZyhidG4udXJsKTsKICAgICAgICAgICAgICBidXR0b25VcmxzRGF0YVtgYnRuX2FjdGlvbl8ke2luZGV4ICsgMX1fdXJsYF0gPSBTdHJpbmcoYnRuLnVybCk7CiAgICAgICAgICAgIH0KICAgICAgICAgIH0KICAgICAgICB9KTsKICAgICAgfQoKICAgICAgaWYgKHBhcnNlZEJvZHkudXJsKSB7CiAgICAgICAgYnV0dG9uVXJsc0RhdGFbImJvZHlfdXJsIl0gPSBTdHJpbmcocGFyc2VkQm9keS51cmwpOwogICAgICB9CgogICAgICBjb25zdCBvbmVTaWduYWxQYXlsb2FkID0gewogICAgICAgIGFwcF9pZDogT05FU0lHTkFMX0FQUF9JRCwKICAgICAgICB0YXJnZXRfY2hhbm5lbDogInB1c2giLAogICAgICAgIGhlYWRpbmdzOiB7IGVuOiBTdHJpbmcodGl0bGVUZXh0KSB9LAogICAgICAgIGNvbnRlbnRzOiB7IGVuOiBTdHJpbmcoYm9keVRleHQpIH0sCiAgICAgICAgaW5jbHVkZV9zdWJzY3JpcHRpb25faWRzOiB0YXJnZXRzLAogICAgICAgIGRhdGE6IHsKICAgICAgICAgIC4uLihwYXJzZWRCb2R5LmRhdGEgfHwge30pLAogICAgICAgICAgLi4uYnV0dG9uVXJsc0RhdGEKICAgICAgICB9CiAgICAgIH07CgogICAgICBpZiAocGFyc2VkQm9keS51cmwgJiYgYW5kcm9pZEJ1dHRvbnMubGVuZ3RoID09PSAwKSB7CiAgICAgICAgb25lU2lnbmFsUGF5bG9hZC51cmwgPSBTdHJpbmcocGFyc2VkQm9keS51cmwpOwogICAgICB9CgogICAgICBpZiAobW9kZSA9PT0gInVyZ2VudCIpIHsKICAgICAgICBvbmVTaWduYWxQYXlsb2FkLnByaW9yaXR5ID0gMTA7CiAgICAgICAgb25lU2lnbmFsUGF5bG9hZC5leGlzdGluZ19hbmRyb2lkX2NoYW5uZWxfaWQgPSAiUmVzdWx0IEFsZXJ0cyI7CiAgICAgICAgb25lU2lnbmFsUGF5bG9hZC5hbmRyb2lkX3NvdW5kID0gImRlZmF1bHQiOwogICAgICAgIG9uZVNpZ25hbFBheWxvYWQuYW5kcm9pZF92aXNpYmlsaXR5ID0gMTsKICAgICAgICBvbmVTaWduYWxQYXlsb2FkLmFuZHJvaWRfYWNjZW50X2NvbG9yID0gIkZGMDQ3ODU3IjsKICAgICAgfSBlbHNlIGlmIChtb2RlID09PSAiaGlnaCIpIHsKICAgICAgICBvbmVTaWduYWxQYXlsb2FkLnByaW9yaXR5ID0gMTA7CiAgICAgICAgb25lU2lnbmFsUGF5bG9hZC5hbmRyb2lkX3NvdW5kID0gImRlZmF1bHQiOwogICAgICAgIG9uZVNpZ25hbFBheWxvYWQuYW5kcm9pZF92aXNpYmlsaXR5ID0gMTsKICAgICAgfSBlbHNlIHsKICAgICAgICBvbmVTaWduYWxQYXlsb2FkLnByaW9yaXR5ID0gNTsKICAgICAgICBvbmVTaWduYWxQYXlsb2FkLmFuZHJvaWRfc291bmQgPSBudWxsOwogICAgICAgIG9uZVNpZ25hbFBheWxvYWQuYW5kcm9pZF92aXNpYmlsaXR5ID0gMDsKICAgICAgfQoKICAgICAgaWYgKHBhcnNlZEJvZHkuYmlnX3BpY3R1cmUgfHwgcGFyc2VkQm9keS5pbWFnZVVybCkgb25lU2lnbmFsUGF5bG9hZC5iaWdfcGljdHVyZSA9IFN0cmluZyhwYXJzZWRCb2R5LmJpZ19waWN0dXJlIHx8IHBhcnNlZEJvZHkuaW1hZ2VVcmwpOwogICAgICBpZiAocGFyc2VkQm9keS5sYXJnZV9pY29uIHx8IHBhcnNlZEJvZHkubGFyZ2VJY29uKSBvbmVTaWduYWxQYXlsb2FkLmxhcmdlX2ljb24gPSBTdHJpbmcocGFyc2VkQm9keS5sYXJnZV9pY29uIHx8IHBhcnNlZEJvZHkubGFyZ2VJY29uKTsKICAgICAgCiAgICAgIGlmIChhbmRyb2lkQnV0dG9ucy5sZW5ndGggPiAwKSB7CiAgICAgICAgb25lU2lnbmFsUGF5bG9hZC5idXR0b25zID0gYW5kcm9pZEJ1dHRvbnM7CiAgICAgICAgb25lU2lnbmFsUGF5bG9hZC53ZWJfYnV0dG9ucyA9IHdlYkJ1dHRvbnM7CiAgICAgIH0KCiAgICAgIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgZmV0Y2goImh0dHBzOi8vYXBpLm9uZXNpZ25hbC5jb20vbm90aWZpY2F0aW9ucz9jPXB1c2giLCB7CiAgICAgICAgbWV0aG9kOiAiUE9TVCIsCiAgICAgICAgaGVhZGVyczogewogICAgICAgICAgIkF1dGhvcml6YXRpb24iOiBhdXRoSGVhZGVyLAogICAgICAgICAgIkNvbnRlbnQtVHlwZSI6ICJhcHBsaWNhdGlvbi9qc29uIgogICAgICAgIH0sCiAgICAgICAgYm9keTogSlNPTi5zdHJpbmdpZnkob25lU2lnbmFsUGF5bG9hZCkKICAgICAgfSk7CgogICAgICBjb25zdCByZXNEYXRhID0gYXdhaXQgcmVzcG9uc2UuanNvbigpOwogICAgICBjb25zdCBoYXNWYWxpZElkID0gQm9vbGVhbihyZXNEYXRhLmlkICYmIFN0cmluZyhyZXNEYXRhLmlkKS50cmltKCkgIT09ICIiKTsKCiAgICAgIHJldHVybiByZXMuc3RhdHVzKHJlc3BvbnNlLnN0YXR1cykuanNvbih7CiAgICAgICAgc3VjY2VzczogcmVzcG9uc2Uub2sgJiYgaGFzVmFsaWRJZCwKICAgICAgICBzdGF0dXNDb2RlOiByZXNwb25zZS5zdGF0dXMsCiAgICAgICAgaWQ6IHJlc0RhdGEuaWQgfHwgbnVsbCwKICAgICAgICBtZXNzYWdlSWQ6IHJlc0RhdGEuaWQgfHwgbnVsbCwKICAgICAgICByZWNpcGllbnRzOiByZXNEYXRhLnJlY2lwaWVudHMgPz8gKGhhc1ZhbGlkSWQgPyB0YXJnZXRzLmxlbmd0aCA6IDApLAogICAgICAgIHJhd09uZVNpZ25hbFJlc3BvbnNlOiByZXNEYXRhLAogICAgICAgIG91dGdvaW5nUGF5bG9hZFNlbnQ6IG9uZVNpZ25hbFBheWxvYWQKICAgICAgfSk7CgogICAgfSBjYXRjaCAoZXJyKSB7CiAgICAgIHJldHVybiByZXMuc3RhdHVzKDUwMCkuanNvbih7CiAgICAgICAgc3VjY2VzczogZmFsc2UsCiAgICAgICAgc3RhdHVzQ29kZTogNTAwLAogICAgICAgIGVycm9yOiAiU2VydmVyIEV4Y2VwdGlvbjogIiArIGVyci5tZXNzYWdlCiAgICAgIH0pOwogICAgfQogIH0KCiAgcmV0dXJuIHJlcy5zdGF0dXMoNDA0KS5qc29uKHsgc3VjY2VzczogZmFsc2UsIHN0YXR1c0NvZGU6IDQwNCwgZXJyb3I6ICJBY3Rpb24gbm90IHJlY29nbml6ZWQuIiB9KTsKfQo=
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
+  const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
+
+  if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
+    return res.status(500).json({
+      success: false,
+      statusCode: 500,
+      error: "Vercel Config Error: ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY is missing."
+    });
+  }
+
+  const rawKey = ONESIGNAL_REST_API_KEY.replace(/^Key\s+/i, "").trim();
+  const authHeader = `Key ${rawKey}`;
+
+  // Safe action query extraction (case-insensitive & trimmed)
+  const action = (req.query.action || "").toLowerCase().trim();
+  const limit = req.query.limit || 50;
+  const offset = req.query.offset || 0;
+
+  // 1. Overview API (Working OneSignal v1 endpoint)
+  if (req.method === "GET" && (!action || action === "overview")) {
+    try {
+      const response = await fetch(`https://onesignal.com/api/v1/apps/${ONESIGNAL_APP_ID}`, {
+        method: "GET",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json"
+        }
+      });
+      const data = await response.json();
+      return res.status(response.status).json({
+        success: response.ok,
+        statusCode: response.status,
+        data: {
+          totalSubscriptions: data.players ?? data.total_subscriptions ?? 0,
+          messageableSubscriptions: data.messageable_players ?? 0,
+          appName: data.name ?? "Resultify",
+          appId: data.id
+        }
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, statusCode: 500, error: err.message });
+    }
+  }
+
+  // 2. View Messages / Notifications API (History & Analytics)
+  if (req.method === "GET" && (action === "notifications" || action === "messages")) {
+    try {
+      const targetApiUrl = `https://onesignal.com/api/v1/notifications?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`;
+
+      const response = await fetch(targetApiUrl, {
+        method: "GET",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json"
+        }
+      });
+
+      const data = await response.json();
+
+      return res.status(response.status).json({
+        success: response.ok,
+        statusCode: response.status,
+        total_count: data.total_count ?? (data.notifications ? data.notifications.length : 0),
+        notifications: data.notifications ?? []
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, statusCode: 500, error: err.message });
+    }
+  }
+
+  // 3. Subscribers List API (Working OneSignal v1 endpoint)
+  if (req.method === "GET" && (action === "subscribers" || action === "players")) {
+    try {
+      const response = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
+        method: "GET",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json"
+        }
+      });
+      const data = await response.json();
+      return res.status(response.status).json({
+        success: response.ok,
+        statusCode: response.status,
+        total_count: data.total_count ?? (data.players ? data.players.length : 0),
+        players: data.players ?? []
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, statusCode: 500, error: err.message });
+    }
+  }
+
+  // 4. Send Push Notification API
+  if (req.method === "POST") {
+    try {
+      const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+      
+      const titleText = parsedBody.headings?.en || parsedBody.title || "Notification";
+      const bodyText = parsedBody.contents?.en || parsedBody.body || "";
+      const rawSubIds = parsedBody.include_subscription_ids || parsedBody.subscription_ids || (parsedBody.target_device_id ? [parsedBody.target_device_id] : []);
+
+      let targets = [];
+      if (Array.isArray(rawSubIds) && rawSubIds.length > 0) {
+        targets = rawSubIds.map(id => String(id).trim());
+      } else {
+        try {
+          const fetchPlayers = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
+            method: "GET",
+            headers: {
+              "Authorization": authHeader,
+              "Content-Type": "application/json"
+            }
+          });
+          const pData = await fetchPlayers.json();
+          targets = (pData.players || [])
+            .filter(p => !p.invalid_identifier)
+            .map(p => String(p.id).trim());
+        } catch (e) {
+          targets = [];
+        }
+      }
+
+      if (!targets || targets.length === 0) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          error: "Target Error: Koi valid active Subscription ID nahi mili."
+        });
+      }
+
+      const mode = parsedBody.priority_mode || (Number(parsedBody.priority) === 5 ? "normal" : "urgent");
+
+      const buttonUrlsData = {};
+      const androidButtons = [];
+      const webButtons = [];
+
+      if (parsedBody.buttons && Array.isArray(parsedBody.buttons)) {
+        parsedBody.buttons.forEach((btn, index) => {
+          if (btn.text) {
+            const btnId = btn.id || `btn_action_${index + 1}`;
+            
+            androidButtons.push({
+              id: btnId,
+              text: String(btn.text)
+            });
+
+            webButtons.push({
+              id: btnId,
+              text: String(btn.text),
+              url: btn.url || undefined
+            });
+
+            if (btn.url) {
+              buttonUrlsData[`${btnId}_url`] = String(btn.url);
+              buttonUrlsData[`btn_action_${index + 1}_url`] = String(btn.url);
+            }
+          }
+        });
+      }
+
+      if (parsedBody.url) {
+        buttonUrlsData["body_url"] = String(parsedBody.url);
+      }
+
+      const oneSignalPayload = {
+        app_id: ONESIGNAL_APP_ID,
+        target_channel: "push",
+        headings: { en: String(titleText) },
+        contents: { en: String(bodyText) },
+        include_subscription_ids: targets,
+        data: {
+          ...(parsedBody.data || {}),
+          ...buttonUrlsData
+        }
+      };
+
+      if (parsedBody.url && androidButtons.length === 0) {
+        oneSignalPayload.url = String(parsedBody.url);
+      }
+
+      if (mode === "urgent") {
+        oneSignalPayload.priority = 10;
+        oneSignalPayload.existing_android_channel_id = "Result Alerts";
+        oneSignalPayload.android_sound = "default";
+        oneSignalPayload.android_visibility = 1;
+        oneSignalPayload.android_accent_color = "FF047857";
+      } else if (mode === "high") {
+        oneSignalPayload.priority = 10;
+        oneSignalPayload.android_sound = "default";
+        oneSignalPayload.android_visibility = 1;
+      } else {
+        oneSignalPayload.priority = 5;
+        oneSignalPayload.android_sound = null;
+        oneSignalPayload.android_visibility = 0;
+      }
+
+      if (parsedBody.big_picture || parsedBody.imageUrl) oneSignalPayload.big_picture = String(parsedBody.big_picture || parsedBody.imageUrl);
+      if (parsedBody.large_icon || parsedBody.largeIcon) oneSignalPayload.large_icon = String(parsedBody.large_icon || parsedBody.largeIcon);
+      
+      if (androidButtons.length > 0) {
+        oneSignalPayload.buttons = androidButtons;
+        oneSignalPayload.web_buttons = webButtons;
+      }
+
+      const response = await fetch("https://api.onesignal.com/notifications?c=push", {
+        method: "POST",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(oneSignalPayload)
+      });
+
+      const resData = await response.json();
+      const hasValidId = Boolean(resData.id && String(resData.id).trim() !== "");
+
+      return res.status(response.status).json({
+        success: response.ok && hasValidId,
+        statusCode: response.status,
+        id: resData.id || null,
+        messageId: resData.id || null,
+        recipients: resData.recipients ?? (hasValidId ? targets.length : 0),
+        rawOneSignalResponse: resData,
+        outgoingPayloadSent: oneSignalPayload
+      });
+
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        statusCode: 500,
+        error: "Server Exception: " + err.message
+      });
+    }
+  }
+
+  return res.status(404).json({ success: false, statusCode: 404, error: "Action not recognized." });
+}
