@@ -18,18 +18,15 @@ export default async function handler(req, res) {
     });
   }
 
-  const rawKey = ONESIGNAL_REST_API_KEY.replace(/^Key\s+/i, "").trim();
+  const rawKey = ONESIGNAL_REST_API_KEY.replace(/^Key\s+/i, "");
   const authHeader = `Key ${rawKey}`;
 
-  // Safe action query extraction (case-insensitive & trimmed)
-  const action = (req.query.action || "").toLowerCase().trim();
-  const limit = req.query.limit || 50;
-  const offset = req.query.offset || 0;
+  const { action, limit = 50, offset = 0 } = req.query;
 
-  // 1. Overview API (Working OneSignal v1 endpoint)
+  // 1. Overview API
   if (req.method === "GET" && (!action || action === "overview")) {
     try {
-      const response = await fetch(`https://onesignal.com/api/v1/apps/${ONESIGNAL_APP_ID}`, {
+      const response = await fetch(`https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}`, {
         method: "GET",
         headers: {
           "Authorization": authHeader,
@@ -52,10 +49,11 @@ export default async function handler(req, res) {
     }
   }
 
-  // 2. View Messages / Notifications API (History & Analytics)
+  // 2. View Messages / Notifications API (Official Documentation Fixed Endpoint)
   if (req.method === "GET" && (action === "notifications" || action === "messages")) {
     try {
-      const targetApiUrl = `https://onesignal.com/api/v1/notifications?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`;
+      // Official API: https://api.onesignal.com/notifications?app_id={app_id}&limit={limit}&offset={offset}
+      const targetApiUrl = `https://api.onesignal.com/notifications?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`;
 
       const response = await fetch(targetApiUrl, {
         method: "GET",
@@ -78,10 +76,10 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Subscribers List API (Working OneSignal v1 endpoint)
-  if (req.method === "GET" && (action === "subscribers" || action === "players")) {
+  // 3. Subscribers List API
+  if (req.method === "GET" && action === "subscribers") {
     try {
-      const response = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
+      const response = await fetch(`https://api.onesignal.com/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
         method: "GET",
         headers: {
           "Authorization": authHeader,
@@ -114,7 +112,7 @@ export default async function handler(req, res) {
         targets = rawSubIds.map(id => String(id).trim());
       } else {
         try {
-          const fetchPlayers = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
+          const fetchPlayers = await fetch(`https://api.onesignal.com/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
             method: "GET",
             headers: {
               "Authorization": authHeader,
