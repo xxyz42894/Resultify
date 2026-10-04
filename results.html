@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- Sabse pehle security script load honi chahiye -->
   <script src="./js/security-guard.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Resultify - Exam Results</title>
@@ -13,20 +12,29 @@
   <script type="module" src="./js/results-pages.js"></script>
 </head>
 <body class="min-h-screen pb-20 select-none" style="background-color: var(--bg-void); color: var(--text-primary);">
-  <header class="sticky top-0 z-30 border-b px-4 py-3 flex items-center justify-between backdrop-blur-xl" style="background-color: var(--bg-void); border-color: var(--border-subtle);">
-    <div class="flex items-center gap-2.5">
-      <a href="dashboard.html" class="w-8 h-8 rounded-xl flex items-center justify-center" style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-muted);">
+  <header class="sticky top-0 z-30 border-b px-3.5 py-3 flex items-center justify-between backdrop-blur-xl" style="background-color: var(--bg-void); border-color: var(--border-subtle);">
+    <div class="flex items-center gap-2">
+      <a href="dashboard.html" class="w-8 h-8 rounded-xl flex items-center justify-center surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">
         <span class="material-symbols-outlined text-18">arrow_back</span>
       </a>
-      <h1 class="text-sm font-bold" style="color: var(--text-primary);">Results Management</h1>
+      <h1 class="text-sm font-bold truncate max-w-[110px]" style="color: var(--text-primary);">Results</h1>
     </div>
-    <div class="flex items-center gap-2">
-      <a href="bulk-results.html" class="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border surface-card" style="border-color: var(--border-subtle); color: var(--accent-cyan);" title="Bulk Publish Queue">
+    
+    <div class="flex items-center gap-1.5">
+      <!-- Backup & Upload Trigger Button -->
+      <button id="openSyncModalBtn" class="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border surface-card transition-all active:scale-95" style="border-color: var(--border-subtle); color: var(--accent-amber);" title="Backup & Upload JSON">
+        <span class="material-symbols-outlined text-16">cloud_sync</span>
+        <span>Sync JSON</span>
+      </button>
+
+      <a href="bulk-results.html" class="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border surface-card" style="border-color: var(--border-subtle); color: var(--accent-cyan);" title="Bulk Add">
         <span class="material-symbols-outlined text-16">library_add</span>
-        <span>Bulk Add</span>
+        <span>Bulk</span>
       </a>
-      <button id="addResultBtn" class="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-md" style="background-color: var(--accent-mint); color: var(--bg-void);">
-        <span class="material-symbols-outlined text-16">add</span> Add Result
+
+      <button id="addResultBtn" class="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-md transition-all active:scale-95" style="background-color: var(--accent-mint); color: #FFFFFF;">
+        <span class="material-symbols-outlined text-16">add</span>
+        <span>Add</span>
       </button>
     </div>
   </header>
@@ -34,7 +42,7 @@
   <main class="max-w-md mx-auto p-4 space-y-3">
     <!-- Search Bar -->
     <div class="space-y-2">
-      <input type="text" id="searchInput" placeholder="Search title, board, exam..." class="w-full px-3.5 py-2.5 rounded-xl text-xs" style="color: var(--text-primary);">
+      <input type="text" id="searchInput" placeholder="Search title, board, exam..." class="w-full px-3.5 py-2.5 rounded-xl text-xs surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
       
       <!-- Category Filter Pills -->
       <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
@@ -87,6 +95,78 @@
     <!-- Results Feed -->
     <div id="resultsFeed" class="space-y-2.5"></div>
   </main>
+
+  <!-- ============================================== -->
+  <!-- POPUP MODAL: UPLOAD JSON & BACKUP RESULTS      -->
+  <!-- ============================================== -->
+  <div id="syncJsonModal" class="fixed inset-0 z-50 hidden backdrop-blur-sm flex flex-col justify-end bg-black/60">
+    <div class="border-t rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl animate-sheet-up surface-card p-4 space-y-4" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+      <div class="w-10 h-1 rounded-full mx-auto mb-1 shrink-0" style="background-color: var(--border-subtle);"></div>
+      
+      <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-subtle);">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-20" style="color: var(--accent-amber);">cloud_sync</span>
+          <div>
+            <h3 class="text-xs font-bold" style="color: var(--text-primary);">Database JSON Manager</h3>
+            <p class="text-[10px]" style="color: var(--text-muted);">Sync, Parse & Timestamped Backups</p>
+          </div>
+        </div>
+        <button type="button" id="closeSyncModalBtn" class="w-7 h-7 rounded-lg flex items-center justify-center surface-card border" style="border-color: var(--border-subtle);">
+          <span class="material-symbols-outlined text-16">close</span>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs overflow-y-auto custom-scrollbar flex-1 pr-1">
+        <!-- 1. BACKUP BOX -->
+        <div class="p-3.5 rounded-2xl border surface-card space-y-2" style="border-color: var(--border-subtle);">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-18" style="color: var(--accent-mint);">download</span>
+            <h4 class="text-xs font-bold" style="color: var(--text-primary);">Export Database Backup (.json)</h4>
+          </div>
+          <p class="text-[11px]" style="color: var(--text-muted);">
+            Realtime database se sabhi results nikal kar exact timestamped JSON file download karega.
+          </p>
+          <button type="button" id="downloadBackupBtn" class="w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98" style="background-color: var(--accent-mint); color: #FFFFFF;">
+            <span class="material-symbols-outlined text-18">save_alt</span>
+            <span>Download Backup (.json)</span>
+          </button>
+        </div>
+
+        <!-- 2. UPLOAD & INDIVIDUAL PARSE BOX -->
+        <div class="p-3.5 rounded-2xl border surface-card space-y-2.5" style="border-color: var(--border-subtle);">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-18" style="color: var(--accent-cyan);">upload_file</span>
+            <h4 class="text-xs font-bold" style="color: var(--text-primary);">Upload & Sync JSON to Database</h4>
+          </div>
+          <p class="text-[11px]" style="color: var(--text-muted);">
+            Yeh JSON file ko padhega, check karega aur <b>alag-alag results</b> bana kar database me sync karega taaki database structure corrupt na ho.
+          </p>
+
+          <!-- Hidden File Input -->
+          <input type="file" id="jsonFileInput" accept=".json,application/json" class="hidden">
+
+          <div id="dropZoneArea" class="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all surface-card" style="border-color: var(--border-subtle);">
+            <span class="material-symbols-outlined text-28 block mb-1" style="color: var(--accent-cyan);">file_open</span>
+            <span id="selectedFileNameText" class="text-xs font-bold block" style="color: var(--text-primary);">Tap to Choose .JSON File</span>
+            <span class="text-[10px]" style="color: var(--text-muted);">Select JSON backup or array file</span>
+          </div>
+
+          <!-- Upload Status Indicator -->
+          <div id="uploadProgressInfo" class="hidden p-2.5 rounded-xl border text-[11px] font-mono" style="background-color: var(--bg-input); border-color: var(--border-subtle);">
+            <div class="flex items-center justify-between">
+              <span id="uploadStatusText" style="color: var(--accent-cyan);">Parsing file...</span>
+              <span id="uploadPercentText" class="font-bold">0%</span>
+            </div>
+          </div>
+
+          <button type="button" id="startUploadSyncBtn" disabled class="w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 opacity-50 cursor-not-allowed transition-all" style="background-color: var(--accent-cyan); color: #FFFFFF;">
+            <span class="material-symbols-outlined text-18">sync</span>
+            <span>Parse & Sync to Realtime DB</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Add/Edit Bottom Sheet Modal -->
   <div id="resultModalSheet" class="fixed inset-0 z-50 hidden backdrop-blur-sm flex flex-col justify-end" style="background-color: rgba(27, 40, 52, 0.65);">
@@ -167,7 +247,6 @@
               <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-bold" style="background-color: rgba(180,83,9,0.15); color: var(--accent-amber);">AUTO SWITCH</span>
             </div>
 
-            <!-- Timer 1: Coming Soon -> Live 🔴 -->
             <div>
               <label class="block text-[10px] font-bold mb-0.5" style="color: var(--text-primary);">
                 1. Auto Go-Live Time (Coming Soon ➔ Live 🔴)
@@ -176,7 +255,6 @@
               <p class="text-[9px] mt-0.5" style="color: var(--text-muted);">Is time par result status auto <b>Live 🔴</b> ban jayega aur links open ho jayenge.</p>
             </div>
 
-            <!-- Timer 2: Live 🔴 -> Result Available 🟢 -->
             <div>
               <label class="block text-[10px] font-bold mb-0.5" style="color: var(--text-primary);">
                 2. Auto Complete Time (Live 🔴 ➔ Result Available 🟢)
@@ -192,17 +270,16 @@
             <input type="datetime-local" id="formTimeAnnounced" class="w-full px-3 py-1.5 rounded-xl text-xs font-mono">
           </div>
 
-          <!-- PORTAL LINK (When coming soon/not available) -->
+          <!-- PORTAL LINK -->
           <div class="p-3 rounded-xl space-y-1.5 surface-card border" style="border-color: var(--border-subtle);">
             <div class="flex items-center justify-between">
               <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-amber);">Official Board Website URL</span>
               <span class="text-[9px] font-mono text-amber-700">For Coming Soon</span>
             </div>
             <input type="url" id="formPortalUrl" placeholder="https://biharboardonline.bihar.gov.in" class="w-full px-3 py-1.5 rounded-xl text-xs">
-            <p class="text-[9px]" style="color: var(--text-muted);">Jab tak result declare nahi hoga, app me yahi main website open hogi.</p>
           </div>
 
-          <!-- 3 MARKSHEET LINKS (When Result is Declared) -->
+          <!-- 3 MARKSHEET LINKS -->
           <div class="p-3 rounded-xl space-y-2 surface-card border" style="border-color: var(--border-subtle);">
             <div class="flex items-center justify-between">
               <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-cyan);">Official Result Marksheet Links</span>
@@ -225,19 +302,19 @@
             </div>
           </div>
 
-          <!-- Description with Markdown / HTML Info Button -->
+          <!-- Description -->
           <div class="space-y-1">
             <div class="flex items-center justify-between">
-              <label class="block text-[11px] font-bold" style="color: var(--text-muted);">Description (HTML & Markdown Supported)</label>
+              <label class="block text-[11px] font-bold" style="color: var(--text-muted);">Description</label>
               <button type="button" id="descHelperBtn" class="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md surface-card border" style="border-color: var(--border-subtle); color: var(--accent-cyan);">
                 <span class="material-symbols-outlined text-14">info</span>
                 <span>Format Guide</span>
               </button>
             </div>
-            <textarea id="formDescription" required rows="3" placeholder="Instructions, cutoff details or <b>important</b> notes with <a href='...'>links</a>..." class="w-full px-3 py-2 rounded-xl text-xs resize-none"></textarea>
+            <textarea id="formDescription" required rows="3" placeholder="Instructions, cutoff details..." class="w-full px-3 py-2 rounded-xl text-xs resize-none"></textarea>
           </div>
 
-          <!-- Push Switch Row (Clickable) -->
+          <!-- Push Switch Row -->
           <div id="pushToggleRow" class="flex items-center justify-between p-3 rounded-xl border surface-card cursor-pointer select-none" style="border-color: var(--border-subtle);">
             <div>
               <span class="text-xs font-bold block" style="color: var(--text-primary);">Broadcast Push Alert Immediately</span>
@@ -249,7 +326,7 @@
             </label>
           </div>
 
-          <!-- FULL RICH PUSH CUSTOMIZER (Broadcast Style) -->
+          <!-- PUSH CUSTOMIZER -->
           <div id="pushPreviewContainer" class="hidden p-3.5 rounded-2xl border space-y-3.5 surface-card" style="border-color: var(--accent-mint); background-color: rgba(4,120,87,0.03);">
             <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-subtle);">
               <span class="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style="color: var(--accent-mint);">
@@ -259,7 +336,6 @@
               <span class="text-[9px] font-mono px-2 py-0.5 rounded-full font-bold" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">RICH BROADCAST</span>
             </div>
 
-            <!-- Title & Body Edit -->
             <div class="space-y-2">
               <div>
                 <label class="block text-[10px] font-semibold mb-1" style="color: var(--text-muted);">Push Notification Title</label>
@@ -271,45 +347,38 @@
               </div>
             </div>
 
-            <!-- Media & Link Config -->
             <div class="p-3 rounded-xl space-y-2" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
               <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-cyan);">Media & Link Config</p>
-              
               <div>
                 <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Click Action URL (Empty = Opens In-App Result)</label>
                 <input type="url" id="pushCustomUrl" placeholder="https://... (Leave blank for app result screen)" class="w-full px-3 py-1.5 rounded-xl text-xs">
               </div>
-
               <div>
                 <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Big Picture Image URL (Optional)</label>
                 <input type="url" id="pushCustomBigPicture" placeholder="https://example.com/banner.jpg" class="w-full px-3 py-1.5 rounded-xl text-xs">
               </div>
-
               <div>
                 <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Large Icon URL (Optional)</label>
                 <input type="url" id="pushCustomLargeIcon" placeholder="https://example.com/icon.png" class="w-full px-3 py-1.5 rounded-xl text-xs">
               </div>
             </div>
 
-            <!-- Action Buttons Config (Btn 1 Default: Label = Check Result, URL = Blank) -->
             <div class="p-3 rounded-xl space-y-2" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
               <div class="flex items-center justify-between">
                 <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-amber);">Notification Action Buttons (Max 2)</p>
                 <span class="text-[9px] font-mono text-emerald-700">Blank URL = In-App Open</span>
               </div>
-              
               <div class="grid grid-cols-2 gap-2">
                 <input type="text" id="pushCustomBtn1Text" value="Check Result" placeholder="Btn 1 Label" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold">
                 <input type="url" id="pushCustomBtn1Url" placeholder="Blank = Opens App Result" class="px-2.5 py-1.5 rounded-xl text-xs">
               </div>
-
               <div class="grid grid-cols-2 gap-2">
                 <input type="text" id="pushCustomBtn2Text" placeholder="Btn 2 Label (Optional)" class="px-2.5 py-1.5 rounded-xl text-xs">
                 <input type="url" id="pushCustomBtn2Url" placeholder="Btn 2 URL" class="px-2.5 py-1.5 rounded-xl text-xs">
               </div>
             </div>
 
-            <!-- ANDROID NATIVE SHADE LIVE PREVIEW -->
+            <!-- PREVIEW SHADE -->
             <div class="p-3 rounded-xl border space-y-2 bg-black/5" style="border-color: var(--border-subtle);">
               <div class="flex items-center justify-between text-[10px]">
                 <div class="flex items-center gap-1.5 font-bold" style="color: var(--accent-mint);">
@@ -319,16 +388,13 @@
                 </div>
                 <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">URGENT POP</span>
               </div>
-
               <div class="space-y-0.5">
                 <p id="previewPushTitle" class="text-xs font-bold" style="color: var(--text-primary);">Notification Title</p>
                 <p id="previewPushBody" class="text-[11px] line-clamp-2" style="color: var(--text-muted);">Tap to check your result now!</p>
               </div>
-
               <div id="previewPushImgContainer" class="hidden rounded-xl overflow-hidden max-h-32 border" style="border-color: var(--border-subtle);">
                 <img id="previewPushImg" src="" alt="Banner Preview" class="w-full h-auto object-cover">
               </div>
-
               <div id="previewPushBtnsContainer" class="flex gap-2 pt-1 border-t" style="border-color: var(--border-subtle);">
                 <span id="previewPushBtn1" class="text-[10px] font-bold px-2 py-0.5 rounded" style="background-color: var(--bg-elevated); color: var(--accent-cyan);">Check Result</span>
                 <span id="previewPushBtn2" class="text-[10px] font-bold px-2 py-0.5 rounded hidden" style="background-color: var(--bg-elevated); color: var(--accent-cyan);">Button 2</span>
@@ -342,40 +408,6 @@
         <button type="submit" form="resultForm" id="resultSubmitBtn" class="w-full py-2.5 rounded-xl font-bold text-xs shadow-md" style="background-color: var(--accent-mint); color: var(--bg-void);">
           Save Result
         </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- HTML / Markdown Formatting Helper Modal -->
-  <div id="formatGuideModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden p-4">
-    <div class="w-full max-w-sm rounded-2xl surface-card border p-4 space-y-3" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
-      <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-subtle);">
-        <div class="flex items-center gap-1.5">
-          <span class="material-symbols-outlined text-18" style="color: var(--accent-cyan);">code</span>
-          <h4 class="text-xs font-bold" style="color: var(--text-primary);">Description Format Guide</h4>
-        </div>
-        <button type="button" id="closeGuideModalBtn" class="w-7 h-7 rounded-lg flex items-center justify-center surface-card border" style="border-color: var(--border-subtle);">
-          <span class="material-symbols-outlined text-16">close</span>
-        </button>
-      </div>
-
-      <div class="space-y-2 text-[11px]" style="color: var(--text-muted);">
-        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
-          <span class="font-bold text-xs" style="color: var(--text-primary);">1. Bold Text</span>
-          <p class="font-mono text-[10px] text-emerald-700 select-all">&lt;b&gt;Important Notice&lt;/b&gt;</p>
-        </div>
-        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
-          <span class="font-bold text-xs" style="color: var(--text-primary);">2. Italic & Cut (Strikethrough)</span>
-          <p class="font-mono text-[10px] text-emerald-700 select-all">&lt;i&gt;Special Note&lt;/i&gt; · &lt;del&gt;Old Fee&lt;/del&gt;</p>
-        </div>
-        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
-          <span class="font-bold text-xs" style="color: var(--text-primary);">3. Break Line (Nayi Line)</span>
-          <p class="font-mono text-[10px] text-emerald-700 select-all">&lt;br&gt; ya &lt;br/&gt;</p>
-        </div>
-        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
-          <span class="font-bold text-xs" style="color: var(--text-primary);">4. Clickable Web Link</span>
-          <p class="font-mono text-[10px] text-emerald-700 select-all">&lt;a href="https://example.com"&gt;Click Here&lt;/a&gt;</p>
-        </div>
       </div>
     </div>
   </div>
