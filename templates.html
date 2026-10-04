@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Resultify Admin - Push Templates</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/custom.css">
+  <script type="module" src="./js/auth-guard.js"></script>
+</head>
+<body class="min-h-screen pb-20 select-none" style="background-color: var(--bg-void); color: var(--text-primary);">
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-30 border-b backdrop-blur-xl px-4 py-3 flex items-center justify-between" style="background-color: var(--bg-void); border-color: var(--border-subtle);">
+    <div class="flex items-center gap-3">
+      <a href="dashboard.html" class="w-9 h-9 rounded-xl flex items-center justify-center surface-card" style="color: var(--text-primary);">
+        <span class="material-symbols-outlined text-18">arrow_back</span>
+      </a>
+      <div>
+        <h1 class="text-sm font-bold tracking-tight">Push Templates</h1>
+        <p class="text-[10px]" style="color: var(--text-muted);">Create, preview & reuse notification presets</p>
+      </div>
+    </div>
+    <a href="broadcast.html" class="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint); border: 1px solid rgba(4,120,87,0.3);">
+      <span class="material-symbols-outlined text-16">send</span>
+      <span>Broadcast</span>
+    </a>
+  </header>
+
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2"></div>
+
+  <main class="max-w-md mx-auto p-4 space-y-4">
+    <!-- Top Create Template Collapsible / Card -->
+    <section class="p-4 rounded-2xl surface-card space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style="color: var(--accent-mint);">
+          <span class="material-symbols-outlined text-16">add_circle</span>
+          <span>Create New Template</span>
+        </h2>
+        <span class="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold" style="background-color: rgba(4,120,87,0.1); color: var(--accent-mint);">LIVE PREVIEW</span>
+      </div>
+
+      <form id="templateForm" class="space-y-3">
+        <!-- Preset Name -->
+        <div>
+          <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Template Name (e.g. BPSC Result Out)</label>
+          <input type="text" id="tplName" required placeholder="Enter template identifier..." class="w-full px-3 py-2 rounded-xl text-xs outline-none surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);" />
+        </div>
+
+        <!-- Priority Mode -->
+        <div>
+          <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Priority & Tone</label>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold cursor-pointer surface-card">
+              <input type="radio" name="tplPriority" value="urgent" checked class="accent-emerald-600" />
+              <span>Urgent</span>
+            </label>
+            <label class="flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold cursor-pointer surface-card">
+              <input type="radio" name="tplPriority" value="high" class="accent-amber-600" />
+              <span>High</span>
+            </label>
+            <label class="flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold cursor-pointer surface-card">
+              <input type="radio" name="tplPriority" value="normal" class="accent-slate-600" />
+              <span>Normal</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Title & Body -->
+        <div>
+          <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Notification Title</label>
+          <input type="text" id="tplTitle" required placeholder="BPSC TRE Final Result Declared! 🎯" class="w-full px-3 py-2 rounded-xl text-xs outline-none surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);" />
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Message Body</label>
+          <textarea id="tplBody" rows="2" required placeholder="Merit list and scorecards are now available. Check roll number..." class="w-full px-3 py-2 rounded-xl text-xs outline-none surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);"></textarea>
+        </div>
+
+        <!-- URLs & Images -->
+        <div class="grid grid-cols-1 gap-2">
+          <div>
+            <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Click URL (Blank = Open App)</label>
+            <input type="url" id="tplUrl" placeholder="https://example.com/result" class="w-full px-3 py-2 rounded-xl text-xs outline-none surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Big Picture Image URL (Optional)</label>
+            <input type="url" id="tplImage" placeholder="https://images.unsplash.com/photo-..." class="w-full px-3 py-2 rounded-xl text-xs outline-none surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);" />
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="p-2.5 rounded-xl border space-y-2 surface-card" style="border-color: var(--border-subtle);">
+          <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--text-subtle);">Buttons (Max 2)</p>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="tplBtn1Text" placeholder="Btn 1 Label (Check)" class="px-2.5 py-1.5 rounded-lg text-xs outline-none surface-card border" style="border-color: var(--border-subtle);" />
+            <input type="url" id="tplBtn1Url" placeholder="Btn 1 URL" class="px-2.5 py-1.5 rounded-lg text-xs outline-none surface-card border" style="border-color: var(--border-subtle);" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="tplBtn2Text" placeholder="Btn 2 Label (Official)" class="px-2.5 py-1.5 rounded-lg text-xs outline-none surface-card border" style="border-color: var(--border-subtle);" />
+            <input type="url" id="tplBtn2Url" placeholder="Btn 2 URL" class="px-2.5 py-1.5 rounded-lg text-xs outline-none surface-card border" style="border-color: var(--border-subtle);" />
+          </div>
+        </div>
+
+        <!-- Banner Sync Preset -->
+        <div>
+          <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">In-App Banner Sync (Optional)</label>
+          <select id="tplBannerType" class="w-full px-3 py-2 rounded-xl text-xs outline-none surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+            <option value="NONE">None (Don't pin in App header)</option>
+            <option value="NOTICE">Pin as General Notice (Yellow)</option>
+            <option value="UPDATE">Pin as App Update (Green)</option>
+            <option value="BUG">Pin as Critical Bug / Server Down (Red)</option>
+          </select>
+        </div>
+
+        <!-- REAL-TIME DYNAMIC PREVIEW OF CREATING TEMPLATE -->
+        <div class="pt-2 border-t" style="border-color: var(--border-subtle);">
+          <p class="text-[10px] font-bold uppercase tracking-wider mb-2" style="color: var(--text-muted);">Interactive Live Preview</p>
+          <div class="p-3 rounded-xl border bg-black/5 space-y-2" style="border-color: var(--border-subtle);">
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 font-bold" style="color: var(--accent-mint);">
+                <span class="material-symbols-outlined text-14">school</span>
+                <span>Resultify</span>
+                <span class="text-[9px] font-normal" style="color: var(--text-subtle);">· Just now</span>
+              </div>
+              <span id="prevBadge" class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">URGENT POP</span>
+            </div>
+            <h4 id="prevTitle" class="text-xs font-bold" style="color: var(--text-primary);">Notification Title</h4>
+            <p id="prevBody" class="text-[11px]" style="color: var(--text-muted);">Message body will appear here...</p>
+            
+            <div id="prevImageWrap" class="hidden rounded-lg overflow-hidden border max-h-36" style="border-color: var(--border-subtle);">
+              <img id="prevImg" src="" alt="Banner Preview" class="w-full h-auto object-cover" />
+            </div>
+
+            <div id="prevBtnsWrap" class="hidden flex gap-2 pt-1">
+              <span id="prevB1" class="text-[11px] font-semibold px-2.5 py-1 rounded-md" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">Btn 1</span>
+              <span id="prevB2" class="text-[11px] font-semibold px-2.5 py-1 rounded-md" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">Btn 2</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Save Button -->
+        <button type="submit" id="saveTplBtn" class="w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-md" style="background-color: var(--accent-mint); color: #FFFFFF;">
+          <span class="material-symbols-outlined text-18">bookmark_add</span>
+          <span>Save Push Template</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- SAVED TEMPLATES LIST WITH LIVE PREVIEW CARDS & DELETE -->
+    <section class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-muted);">Available Saved Templates</h3>
+        <span id="tplCountBadge" class="text-[10px] font-mono px-2 py-0.5 rounded font-bold surface-card">Loading...</span>
+      </div>
+
+      <div id="templatesListContainer" class="space-y-3">
+        <!-- Injected dynamically by JS -->
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./js/templates.js"></script>
+</body>
+</html>

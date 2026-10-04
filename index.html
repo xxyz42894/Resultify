@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Resultify Admin - Secure Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/custom.css">
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 select-none auth-passed" style="background-color: var(--bg-void, #E8E2D5); color: var(--text-primary, #1B2834);">
+  
+  <div class="w-full max-w-sm surface-card p-6 rounded-3xl border shadow-xl space-y-5" style="border-color: var(--border-subtle, #BAAF98); background-color: var(--bg-surface, #DDD6C7);">
+    
+    <!-- Branding Header -->
+    <div class="text-center space-y-1.5">
+      <div class="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center shadow-sm" style="background-color: rgba(4, 120, 87, 0.15); border: 1px solid rgba(4, 120, 87, 0.35); color: var(--accent-mint, #047857);">
+        <span class="material-symbols-outlined text-32">school</span>
+      </div>
+      <h1 class="text-lg font-bold tracking-tight" style="color: var(--text-primary, #1B2834);">Resultify Console</h1>
+      <p class="text-xs" style="color: var(--text-muted, #4A5D6E);">Sign in to administrative console</p>
+    </div>
+
+    <!-- Login Form -->
+    <form id="adminLoginForm" class="space-y-3.5 text-xs">
+      <div>
+        <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted, #4A5D6E);">Admin Email</label>
+        <div class="relative">
+          <input type="email" id="loginEmail" required placeholder="admin@resultify.com" class="w-full px-3.5 py-2.5 rounded-xl text-xs pl-9 outline-none" style="color: var(--text-primary, #1B2834);">
+          <span class="material-symbols-outlined absolute left-2.5 top-2.5 text-16" style="color: var(--text-muted, #4A5D6E);">mail</span>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted, #4A5D6E);">Password</label>
+        <div class="relative">
+          <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl text-xs pl-9 outline-none" style="color: var(--text-primary, #1B2834);">
+          <span class="material-symbols-outlined absolute left-2.5 top-2.5 text-16" style="color: var(--text-muted, #4A5D6E);">lock</span>
+        </div>
+      </div>
+
+      <button type="submit" id="loginBtn" class="w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]" style="background-color: var(--accent-mint, #047857); color: #FFFFFF;">
+        <span class="material-symbols-outlined text-18">login</span>
+        <span>Sign In to Dashboard</span>
+      </button>
+    </form>
+
+    <!-- Error Alert Box -->
+    <div id="loginErrorBox" class="hidden p-3 rounded-xl border text-[11px] font-medium text-rose-700 bg-rose-500/10 border-rose-500/20 text-center"></div>
+
+    <div class="text-center pt-2 border-t" style="border-color: var(--border-subtle, #BAAF98);">
+      <p class="text-[10px]" style="color: var(--text-subtle, #6B7D8D);">Resultify Admin Hub & Push Console · 2026</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+    import { auth } from "./js/firebase-config.js";
+
+    const form = document.getElementById("adminLoginForm");
+    const emailInput = document.getElementById("loginEmail");
+    const passInput = document.getElementById("loginPassword");
+    const loginBtn = document.getElementById("loginBtn");
+    const errBox = document.getElementById("loginErrorBox");
+
+    // Agar pehle se logged in hai toh direct dashboard bhejo
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        window.location.replace("dashboard.html");
+      }
+    });
+
+    if (form) {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errBox.classList.add("hidden");
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = `<span class="material-symbols-outlined text-18 animate-spin">refresh</span> Verifying credentials...`;
+
+        try {
+          await signInWithEmailAndPassword(auth, emailInput.value.trim(), passInput.value.trim());
+          window.location.replace("dashboard.html");
+        } catch (err) {
+          errBox.textContent = err.message || "Invalid email or password.";
+          errBox.classList.remove("hidden");
+          loginBtn.disabled = false;
+          loginBtn.innerHTML = `<span class="material-symbols-outlined text-18">login</span><span>Sign In to Dashboard</span>`;
+        }
+      });
+    }
+  </script>
+</body>
+</html>
