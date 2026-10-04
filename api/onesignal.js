@@ -6,6 +6,33 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+  
+  // ==========================================
+  // VPN / PROXY / MITM PROTOCOL SECURITY CHECK
+  // ==========================================
+  const headers = req.headers;
+  const proxyHeaders = [
+    "x-proxy-id",
+    "x-forwarded-server",
+    "x-real-ip-forwarded",
+    "via",
+    "forwarded",
+    "x-proxy-user"
+  ];
+
+  const hasSuspiciousProxy = proxyHeaders.some(h => headers[h] !== undefined);
+  const clientThreatScore = Number(headers["x-vercel-ip-as-threat-score"] || headers["cf-threat-score"] || 0);
+
+  // If VPN tunnel / inspect proxy detected
+  if (hasSuspiciousProxy || clientThreatScore > 50) {
+    return res.status(403).json({
+      success: false,
+      statusCode: 403,
+      error: "403 Forbidden: Proxy/VPN inspection detected. Protocol rejected."
+    });
+  }
+
+  // Rest of your existing handler code continues normally...
 
   const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
   const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
