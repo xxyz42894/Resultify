@@ -3,6 +3,7 @@ import { ref, get, set, remove } from "https://www.gstatic.com/firebasejs/12.19.
 import { auth, database } from "./firebase-config.js";
 
 let currentAdminUid = null;
+let currentAdminEmail = "";
 
 function escapeHtml(str) {
   if (!str) return "";
@@ -31,19 +32,34 @@ function showToast(message, type = "info") {
 
 // Security Check: Only "Owner" role is allowed on this page
 onAuthStateChanged(auth, async (user) => {
-  if (!user) return;
+  if (!user) {
+    window.location.replace("index.html");
+    return;
+  }
+  
   currentAdminUid = user.uid;
+  currentAdminEmail = (user.email || "").toLowerCase();
 
   try {
-    const roleSnap = await get(ref(database, `admin_users/${user.uid}/role`));
-    const role = roleSnap.exists() ? roleSnap.val() : "owner";
-    if (role !== "owner") {
-      alert("Unauthorized: Only the Owner can manage team permissions.");
-      window.location.href = "dashboard.html";
-      return;
+    const roleSnap = await get(ref(database, `admin_users/${user.uid}`));
+    
+    // Agar user database me exist nahi karta to use Owner initialize karein
+    if (!roleSnap.exists()) {
+      await set(ref(database, `admin_users/${user.uid}`), {
+        email: currentAdminEmail,
+        role: "owner",
+        addedAt: Date.now()
+      });
+    } else {
+      const role = roleSnap.val().role || "owner";
+      if (role !== "owner") {
+        alert("Unauthorized: Only the Owner can manage team permissions.");
+        window.location.replace("dashboard.html");
+        return;
+      }
     }
   } catch (e) {
-    console.warn("Owner check error:", e);
+    console.warn("Owner check warning:", e.message);
   }
 
   loadTeamList();
@@ -64,16 +80,21 @@ async function loadTeamList() {
       return;
     }
 
+    let partnerCount = 0;
+
     snap.forEach(child => {
       const data = child.val();
-      if (child.key === currentAdminUid) return;
+      // Apne account ko delete/revoke list me na dikhaye
+      if (child.key === currentAdminUid || data.email?.toLowerCase() === currentAdminEmail) return;
 
+      partnerCount++;
       const roleBadge = data.role === "editor" 
         ? '<span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold" style="background-color:rgba(180,83,9,0.15); color:var(--accent-amber); border:1px solid rgba(180,83,9,0.3);">EDITOR</span>'
         : '<span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold" style="background-color:rgba(14,116,144,0.15); color:var(--accent-cyan); border:1px solid rgba(14,116,144,0.3);">VIEWER</span>';
 
       const card = document.createElement("div");
-      card.className = "p-3 rounded-2xl surface-card flex items-center justify-between";
+      card.className = "p-3 rounded-2xl surface-card flex items-center justify-between border";
+      card.style.borderColor = "var(--border-subtle)";
       card.innerHTML = `
         <div class="flex items-center gap-2.5 min-w-0 pr-2">
           <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style="background-color:rgba(4,120,87,0.12); color:var(--accent-mint);">
@@ -84,12 +105,16 @@ async function loadTeamList() {
             <div class="mt-0.5">${roleBadge}</div>
           </div>
         </div>
-        <button data-uid="${child.key}" class="revokeBtn px-2.5 py-1 text-[11px] rounded-lg font-bold" style="background-color:rgba(190,18,60,0.12); color:var(--accent-rose); border:1px solid rgba(190,18,60,0.25);">
+        <button data-uid="${child.key}" class="revokeBtn px-2.5 py-1 text-[11px] rounded-lg font-bold transition-all active:scale-95" style="background-color:rgba(190,18,60,0.12); color:var(--accent-rose); border:1px solid rgba(190,18,60,0.25);">
           Revoke
         </button>
       `;
       container.appendChild(card);
     });
+
+    if (partnerCount === 0) {
+      container.innerHTML = '<p class="text-xs py-3 text-center" style="color:var(--text-subtle);">No partner admins invited yet.</p>';
+    }
 
     document.querySelectorAll(".revokeBtn").forEach(btn => {
       btn.addEventListener("click", async () => {
@@ -112,30 +137,49 @@ if (inviteForm) {
     e.preventDefault();
     const email = document.getElementById("partnerEmail").value.trim().toLowerCase();
     const role = document.getElementById("partnerRole").value;
+    const submitBtn = document.getElementById("inviteBtn");
+
     if (!email) return;
+
+    if (email === currentAdminEmail) {
+      showToast("Aap khud ko invite nahi kar sakte!", "error");
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Authorizing...";
+    }
 
     try {
       const userSnap = await get(ref(database, "admin_users"));
-      let targetUid = `partner_${Date.now()}`;
+      let targetKey = `partner_${Date.now()}`;
+      
       if (userSnap.exists()) {
         userSnap.forEach(child => {
-          if (child.val().email?.toLowerCase() === email) targetUid = child.key;
+          if (child.val().email?.toLowerCase() === email) {
+            targetKey = child.key;
+          }
         });
       }
 
-      await set(ref(database, `admin_users/${targetUid}`), {
+      await set(ref(database, `admin_users/${targetKey}`), {
         email,
         role,
-        name: email.split("@")[0],
         addedAt: Date.now(),
         invitedBy: currentAdminUid
       });
 
-      showToast(`Partner authorized as ${role}!`, "success");
+      showToast(`Partner authorized as ${role.toUpperCase()}!`, "success");
       inviteForm.reset();
       loadTeamList();
     } catch (err) {
       showToast("Authorization failed: " + err.message, "error");
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Authorize Partner Access";
+      }
     }
   });
 }

@@ -74,13 +74,16 @@ async function loadLiveMetrics() {
     dbOk = false;
   }
 
-  // 2. OneSignal Overview Latency, Subscriber Counter & Actual Messages Sent Count
-  const t1 = performance.now();
+  // 2. OneSignal Parallel Fetch & Accurate Ping Calculation
   let osOk = false;
   let osMs = 0;
   try {
-    const osData = await getOneSignalOverview();
-    const notifsData = await getOneSignalNotifications();
+    const t1 = performance.now();
+    // Parallel execute: Dono calls ek sath execute hongi
+    const [osData, notifsData] = await Promise.all([
+      getOneSignalOverview(),
+      getOneSignalNotifications(0)
+    ]);
     osMs = Math.round(performance.now() - t1);
     osOk = true;
 

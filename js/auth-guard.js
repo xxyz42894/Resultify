@@ -33,11 +33,10 @@ onAuthStateChanged(auth, async (user) => {
 
   // 2. UN-AUTHENTICATED: Block UI & Show Access Denied
   if (!user) {
-    // Stop any pending DOM/Interval tasks
     window.stop();
 
     document.body.className = "";
-    document.body.classList.add("auth-passed"); // Allow only the lock screen to show
+    document.body.classList.add("auth-passed");
 
     document.body.innerHTML = `
       <div style="min-height:100vh;background-color:#E8E2D5;color:#1B2834;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;user-select:none;">
@@ -65,18 +64,20 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // 3. AUTHENTICATED: Role Checks
-  try {
-    const roleSnap = await get(ref(database, `admin_users/${user.uid}/role`));
-    const role = roleSnap.exists() ? roleSnap.val() : "owner";
+  // 3. AUTHENTICATED: Strict Role Check SIRF permissions.html ke liye
+  if (pathname.includes("permissions.html")) {
+    try {
+      const roleSnap = await get(ref(database, `admin_users/${user.uid}/role`));
+      const role = roleSnap.exists() ? roleSnap.val() : "owner";
 
-    if (pathname.includes("permissions.html") && role !== "owner") {
-      alert("Unauthorized Access: Only Owners can manage roles.");
-      window.location.replace("dashboard.html");
-      return;
+      if (role !== "owner") {
+        alert("Unauthorized Access: Only Owners can manage roles.");
+        window.location.replace("dashboard.html");
+        return;
+      }
+    } catch (err) {
+      console.warn("Permissions guard:", err.message);
     }
-  } catch (err) {
-    console.warn("Role guard fallback:", err.message);
   }
 
   // Access Granted: Unhide Full Screen
