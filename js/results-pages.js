@@ -10,6 +10,7 @@ let activeCat = "all";
 let activeStatus = "all";
 let searchQuery = "";
 const selectedResultKeys = new Set();
+let parsedResultsToUpload = [];
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
@@ -34,10 +35,10 @@ function showToast(message, type = "info") {
   toast.style.cssText = colors[type] || colors.info;
   toast.innerHTML = `<span class="material-symbols-outlined text-18">info</span><span class="text-xs font-semibold">${escapeHtml(message)}</span>`;
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 3500);
+  setTimeout(() => toast.remove(), 4000);
 }
 
-// AUTOMATIC DUAL TIMER ENGINE (Checks timestamps & updates DB)
+// 1. AUTOMATIC DUAL TIMER ENGINE
 function evaluateTimedResults() {
   const now = Date.now();
   results.forEach(async (r) => {
@@ -45,15 +46,12 @@ function evaluateTimedResults() {
       const liveTime = r.timeLive ? new Date(r.timeLive).getTime() : 0;
       const availTime = r.timeAvailable ? new Date(r.timeAvailable).getTime() : 0;
 
-      // Stage 2: Agar Available time cross ho gaya -> Result Available 🟢
       if (availTime > 0 && now >= availTime) {
         await update(ref(database, `results/${r.key}`), {
           status: "Result Available",
           published: "Declared Officially"
         });
-      }
-      // Stage 1: Agar Live time cross ho gaya par available time bacha hai -> Live 🔴
-      else if (liveTime > 0 && now >= liveTime) {
+      } else if (liveTime > 0 && now >= liveTime) {
         await update(ref(database, `results/${r.key}`), {
           status: "Live",
           published: "Live Now 🔴"
@@ -63,7 +61,7 @@ function evaluateTimedResults() {
   });
 }
 
-// Live Shade Mockup Sync
+// 2. LIVE SHADE MOCKUP SYNC
 function syncPushPreview() {
   const customTitle = document.getElementById("pushCustomTitle");
   const customBody = document.getElementById("pushCustomBody");
@@ -112,7 +110,6 @@ function syncPushPreview() {
   }
 }
 
-// Setup Status Change -> Dynamic Timer Containers
 function setupStatusLogic() {
   const statusSelect = document.getElementById("formStatus");
   const timerComingSoon = document.getElementById("timerSectionComingSoon");
@@ -135,7 +132,6 @@ function setupStatusLogic() {
   };
 }
 
-// Push Customizer Setup
 function setupPushCustomizerEvents() {
   const toggleRow = document.getElementById("pushToggleRow");
   const toggle = document.getElementById("formSendPushToggle");
@@ -208,21 +204,7 @@ function setupPushCustomizerEvents() {
   }
 }
 
-// Formatting Helper Modal Setup
-function setupFormattingGuideModal() {
-  const openBtn = document.getElementById("descHelperBtn");
-  const closeBtn = document.getElementById("closeGuideModalBtn");
-  const modal = document.getElementById("formatGuideModal");
-
-  if (openBtn && modal) {
-    openBtn.onclick = () => modal.classList.remove("hidden");
-  }
-  if (closeBtn && modal) {
-    closeBtn.onclick = () => modal.classList.add("hidden");
-  }
-}
-
-// Auth Role Setup
+// 3. AUTH & DATABASE REAL-TIME LISTENER
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
   try {
@@ -245,7 +227,7 @@ function setupListener() {
     updateStatusCounters();
     render();
   });
-  setInterval(evaluateTimedResults, 30000); // Check every 30 seconds for live conversion
+  setInterval(evaluateTimedResults, 30000);
 }
 
 function updateStatusCounters() {
@@ -344,7 +326,6 @@ function render() {
       statusPill = `<span class="text-[9px] px-2 py-0.5 rounded font-bold" style="background-color:rgba(14,116,144,0.15); color:var(--accent-cyan); border:1px solid rgba(14,116,144,0.3);">Announced</span>`;
     }
 
-    // App Link preview logic: agar coming soon hai toh portal link, live/available hai toh server links
     const isLiveOrAvail = r.status === "Result Available" || r.status === "Live";
 
     card.innerHTML = `
@@ -434,9 +415,7 @@ function render() {
             openActivity: "ResultDetailActivity",
             url: ""
           },
-          buttons: [
-            { id: "btn_action_1", text: "Check Result" }
-          ]
+          buttons: [{ id: "btn_action_1", text: "Check Result" }]
         };
 
         const res = await sendPushNotification(payload);
@@ -453,7 +432,7 @@ function render() {
   updateBulkActionBar();
 }
 
-// Bulk Actions
+// 4. BULK ACTIONS
 const bulkMakeLiveBtn = document.getElementById("bulkMakeLiveBtn");
 if (bulkMakeLiveBtn) {
   bulkMakeLiveBtn.addEventListener("click", async () => {
@@ -511,7 +490,7 @@ if (selectAllCheckbox) {
   });
 }
 
-// Bottom Sheet Modal Open/Close
+// 5. ADD/EDIT BOTTOM SHEET MODAL
 const modalSheet = document.getElementById("resultModalSheet");
 function openModal(key = null) {
   editingKey = key;
@@ -528,7 +507,6 @@ function openModal(key = null) {
   if (timerComingSoon) timerComingSoon.classList.add("hidden");
   if (timerAnnounced) timerAnnounced.classList.add("hidden");
 
-  // Reset push inputs & buttons
   [
     "pushCustomTitle", "pushCustomBody", "pushCustomUrl", 
     "pushCustomBigPicture", "pushCustomLargeIcon", 
@@ -572,7 +550,6 @@ function openModal(key = null) {
   if (modalSheet) modalSheet.classList.remove("hidden");
   setupPushCustomizerEvents();
   setupStatusLogic();
-  setupFormattingGuideModal();
 }
 
 function closeModal() {
@@ -589,7 +566,7 @@ if (sheetClose) sheetClose.addEventListener("click", closeModal);
 const sheetBack = document.getElementById("resultSheetBackBtn");
 if (sheetBack) sheetBack.addEventListener("click", closeModal);
 
-// Form Submit Handler
+// FORM SUBMIT HANDLER
 const resultForm = document.getElementById("resultForm");
 if (resultForm) {
   resultForm.addEventListener("submit", async (e) => {
@@ -640,16 +617,10 @@ if (resultForm) {
         showToast("Result published to database", "success");
       }
 
-      // DISPATCH RICH PUSH BROADCAST
       if (toggle && toggle.checked) {
         const actionButtons = [];
-        // Btn 1: Check Result (If URL is empty, app opens result detail directly)
-        if (b1Text) {
-          actionButtons.push({ id: "btn_action_1", text: b1Text, url: b1Url || undefined });
-        }
-        if (b2Text) {
-          actionButtons.push({ id: "btn_action_2", text: b2Text, url: b2Url || undefined });
-        }
+        if (b1Text) actionButtons.push({ id: "btn_action_1", text: b1Text, url: b1Url || undefined });
+        if (b2Text) actionButtons.push({ id: "btn_action_2", text: b2Text, url: b2Url || undefined });
 
         const oneSignalPayload = {
           target_channel: "push",
@@ -683,8 +654,6 @@ if (resultForm) {
             await update(ref(database, `results/${targetRefKey}`), { notificationSent: true });
           }
           showToast("Push notification dispatched with media!", "success");
-        } else {
-          showToast("Push failed: " + (pRes.errors?.[0] || "Unknown rejection"), "error");
         }
       }
 
@@ -695,7 +664,221 @@ if (resultForm) {
   });
 }
 
-// Category Pills Handlers
+// ====================================================================
+// 6. JSON MANAGER ENGINE (POPUP, PARSE & SYNC INDIVIDUALLY + BACKUP)
+// ====================================================================
+const syncModal = document.getElementById("syncJsonModal");
+const openSyncBtn = document.getElementById("openSyncModalBtn");
+const closeSyncBtn = document.getElementById("closeSyncModalBtn");
+const downloadBackupBtn = document.getElementById("downloadBackupBtn");
+
+const dropZoneArea = document.getElementById("dropZoneArea");
+const jsonFileInput = document.getElementById("jsonFileInput");
+const selectedFileNameText = document.getElementById("selectedFileNameText");
+const startUploadSyncBtn = document.getElementById("startUploadSyncBtn");
+const uploadProgressInfo = document.getElementById("uploadProgressInfo");
+const uploadStatusText = document.getElementById("uploadStatusText");
+const uploadPercentText = document.getElementById("uploadPercentText");
+
+if (openSyncBtn && syncModal) {
+  openSyncBtn.onclick = () => {
+    syncModal.classList.remove("hidden");
+    resetUploadState();
+  };
+}
+
+if (closeSyncBtn && syncModal) {
+  closeSyncBtn.onclick = () => syncModal.classList.add("hidden");
+}
+
+function resetUploadState() {
+  parsedResultsToUpload = [];
+  if (jsonFileInput) jsonFileInput.value = "";
+  if (selectedFileNameText) selectedFileNameText.textContent = "Tap to Choose .JSON File";
+  if (startUploadSyncBtn) {
+    startUploadSyncBtn.disabled = true;
+    startUploadSyncBtn.classList.add("opacity-50", "cursor-not-allowed");
+    startUploadSyncBtn.innerHTML = `<span class="material-symbols-outlined text-18">sync</span><span>Parse & Sync to Realtime DB</span>`;
+  }
+  if (uploadProgressInfo) uploadProgressInfo.classList.add("hidden");
+}
+
+// A. Timestamped JSON Backup
+if (downloadBackupBtn) {
+  downloadBackupBtn.addEventListener("click", async () => {
+    try {
+      downloadBackupBtn.disabled = true;
+      downloadBackupBtn.innerHTML = `<span class="material-symbols-outlined text-18 animate-spin">refresh</span> Preparing Backup...`;
+
+      const snap = await get(ref(database, "results"));
+      const rawData = snap.exists() ? snap.val() : {};
+
+      // Formatted Timestamp String (e.g., 2026-10-04_13-50-00)
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const datePart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const timePart = `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+      const humanReadableTime = now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "medium" });
+
+      // Clean Results Array with Backup Metadata
+      const backupPayload = {
+        app: "Resultify",
+        backup_created_at_human: humanReadableTime,
+        backup_timestamp_ms: now.getTime(),
+        total_results: Object.keys(rawData).length,
+        results: rawData
+      };
+
+      const jsonStr = JSON.stringify(backupPayload, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.href = url;
+      downloadAnchor.download = `resultify_backup_${datePart}_${timePart}.json`;
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      document.body.removeChild(downloadAnchor);
+      URL.revokeObjectURL(url);
+
+      showToast(`Backup downloaded! (${backupPayload.total_results} results)`, "success");
+    } catch (err) {
+      showToast("Backup failed: " + err.message, "error");
+    } finally {
+      downloadBackupBtn.disabled = false;
+      downloadBackupBtn.innerHTML = `<span class="material-symbols-outlined text-18">save_alt</span><span>Download Backup (.json)</span>`;
+    }
+  });
+}
+
+// B. File Select & Validation
+if (dropZoneArea && jsonFileInput) {
+  dropZoneArea.onclick = () => jsonFileInput.click();
+
+  jsonFileInput.onchange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      showToast("Kripya sirf valid .json file select karein!", "error");
+      return;
+    }
+
+    selectedFileNameText.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const rawJson = JSON.parse(event.target.result);
+        let itemsList = [];
+
+        // Support both Array of results or Object { results: [...] } or direct Firebase dump { key1: {...}, key2: {...} }
+        if (Array.isArray(rawJson)) {
+          itemsList = rawJson;
+        } else if (rawJson.results && (Array.isArray(rawJson.results) || typeof rawJson.results === "object")) {
+          itemsList = Array.isArray(rawJson.results) ? rawJson.results : Object.values(rawJson.results);
+        } else if (typeof rawJson === "object") {
+          itemsList = Object.values(rawJson);
+        }
+
+        // Validate each item according to Firebase rules schema
+        parsedResultsToUpload = itemsList.filter(item => {
+          return item && typeof item === "object" && (item.title || item.name) && (item.id !== undefined || item.resultId !== undefined);
+        });
+
+        if (parsedResultsToUpload.length === 0) {
+          showToast("JSON file me koi valid result entry nahi mili!", "error");
+          startUploadSyncBtn.disabled = true;
+          startUploadSyncBtn.classList.add("opacity-50", "cursor-not-allowed");
+          return;
+        }
+
+        showToast(`${parsedResultsToUpload.length} valid results read from file. Ready to sync!`, "info");
+        startUploadSyncBtn.disabled = false;
+        startUploadSyncBtn.classList.remove("opacity-50", "cursor-not-allowed");
+        startUploadSyncBtn.innerHTML = `<span class="material-symbols-outlined text-18">cloud_upload</span><span>Sync ${parsedResultsToUpload.length} Results to DB</span>`;
+
+      } catch (parseErr) {
+        showToast("Invalid JSON syntax in file: " + parseErr.message, "error");
+      }
+    };
+    reader.readAsText(file);
+  };
+}
+
+// C. Individual Result-by-Result Synchronization
+if (startUploadSyncBtn) {
+  startUploadSyncBtn.onclick = async () => {
+    if (!parsedResultsToUpload || parsedResultsToUpload.length === 0) return;
+
+    const confirmMsg = `${parsedResultsToUpload.length} results ko database me alag-alag sync karna chahte hain?`;
+    if (!confirm(confirmMsg)) return;
+
+    startUploadSyncBtn.disabled = true;
+    startUploadSyncBtn.classList.add("opacity-50", "cursor-not-allowed");
+    if (uploadProgressInfo) uploadProgressInfo.classList.remove("hidden");
+
+    let syncedCount = 0;
+    let failedCount = 0;
+    const totalToSync = parsedResultsToUpload.length;
+
+    for (let i = 0; i < totalToSync; i++) {
+      const item = parsedResultsToUpload[i];
+
+      // Format strictly matching Firebase Rules
+      const cleanData = {
+        id: parseInt(item.id || item.resultId) || (Date.now() + i),
+        title: String(item.title || item.name || "Untitled Result").trim(),
+        label: String(item.label || item.subtitle || "Result Notification").trim(),
+        category: String(item.category || "other").toLowerCase().trim(),
+        boardOrUniversity: String(item.boardOrUniversity || item.board || "OTHER").toUpperCase().trim(),
+        year: String(item.year || new Date().getFullYear()).trim(),
+        status: String(item.status || "Result Available").trim(),
+        published: String(item.published || "Declared Officially").trim(),
+        portalUrl: String(item.portalUrl || item.boardUrl || "").trim(),
+        url: String(item.url || item.link || item.server1 || "").trim(),
+        url2: String(item.url2 || item.server2 || "").trim(),
+        url3: String(item.url3 || item.server3 || "").trim(),
+        timeLive: item.timeLive || "",
+        timeAvailable: item.timeAvailable || "",
+        timeAnnounced: item.timeAnnounced || "",
+        description: String(item.description || item.body || item.details || "Official examination marksheet and result.").trim(),
+        openActivity: "ResultDetailActivity",
+        createdAt: item.createdAt || Date.now(),
+        notificationSent: Boolean(item.notificationSent)
+      };
+
+      try {
+        // Individual unique Firebase Push Key (No full database overwrite)
+        const newEntryRef = push(ref(database, "results"));
+        await set(newEntryRef, cleanData);
+        syncedCount++;
+      } catch (e) {
+        console.warn("Item sync failed:", item, e);
+        failedCount++;
+      }
+
+      // Update Live Progress
+      const pct = Math.round(((i + 1) / totalToSync) * 100);
+      if (uploadPercentText) uploadPercentText.textContent = `${pct}%`;
+      if (uploadStatusText) uploadStatusText.textContent = `Syncing: ${syncedCount}/${totalToSync}...`;
+    }
+
+    if (uploadStatusText) {
+      uploadStatusText.textContent = `Complete: ${syncedCount} synced successfully!`;
+    }
+
+    alert(`Sync Report:\n\n✅ ${syncedCount} Results database me alag-alag kamiyabi se sync ho gaye!\n❌ Failed: ${failedCount}`);
+    showToast(`${syncedCount} Results synced to database!`, "success");
+
+    setTimeout(() => {
+      syncModal.classList.add("hidden");
+      resetUploadState();
+    }, 1500);
+  };
+}
+
+// 7. FILTER PILLS SETUP
 document.querySelectorAll(".cat-pill").forEach(pill => {
   pill.addEventListener("click", () => {
     document.querySelectorAll(".cat-pill").forEach(p => {
@@ -709,7 +892,6 @@ document.querySelectorAll(".cat-pill").forEach(pill => {
   });
 });
 
-// Status Pills Handlers
 document.querySelectorAll(".status-pill").forEach(pill => {
   pill.addEventListener("click", () => {
     document.querySelectorAll(".status-pill").forEach(p => {
