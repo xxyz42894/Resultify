@@ -6,33 +6,6 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
-  
-  // ==========================================
-  // VPN / PROXY / MITM PROTOCOL SECURITY CHECK
-  // ==========================================
-  const headers = req.headers;
-  const proxyHeaders = [
-    "x-proxy-id",
-    "x-forwarded-server",
-    "x-real-ip-forwarded",
-    "via",
-    "forwarded",
-    "x-proxy-user"
-  ];
-
-  const hasSuspiciousProxy = proxyHeaders.some(h => headers[h] !== undefined);
-  const clientThreatScore = Number(headers["x-vercel-ip-as-threat-score"] || headers["cf-threat-score"] || 0);
-
-  // If VPN tunnel / inspect proxy detected
-  if (hasSuspiciousProxy || clientThreatScore > 50) {
-    return res.status(403).json({
-      success: false,
-      statusCode: 403,
-      error: "403 Forbidden: Proxy/VPN inspection detected. Protocol rejected."
-    });
-  }
-
-  // Rest of your existing handler code continues normally...
 
   const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
   const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
@@ -45,15 +18,17 @@ export default async function handler(req, res) {
     });
   }
 
-  const rawKey = ONESIGNAL_REST_API_KEY.replace(/^Key\s+/i, "");
+  const rawKey = ONESIGNAL_REST_API_KEY.replace(/^Key\s+/i, "").trim();
   const authHeader = `Key ${rawKey}`;
 
-  const { action, limit = 50, offset = 0 } = req.query;
+  const action = (req.query.action || "").toLowerCase().trim();
+  const limit = req.query.limit || 50;
+  const offset = req.query.offset || 0;
 
-  // 1. Overview API
+  // 1. Overview API (Working Stable v1 Endpoint)
   if (req.method === "GET" && (!action || action === "overview")) {
     try {
-      const response = await fetch(`https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}`, {
+      const response = await fetch(`https://onesignal.com/api/v1/apps/${ONESIGNAL_APP_ID}`, {
         method: "GET",
         headers: {
           "Authorization": authHeader,
@@ -76,11 +51,10 @@ export default async function handler(req, res) {
     }
   }
 
-  // 2. View Messages / Notifications API (Official Documentation Fixed Endpoint)
+  // 2. View Messages / Notifications API (Notifications History)
   if (req.method === "GET" && (action === "notifications" || action === "messages")) {
     try {
-      // Official API: https://api.onesignal.com/notifications?app_id={app_id}&limit={limit}&offset={offset}
-      const targetApiUrl = `https://api.onesignal.com/notifications?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`;
+      const targetApiUrl = `https://onesignal.com/api/v1/notifications?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`;
 
       const response = await fetch(targetApiUrl, {
         method: "GET",
@@ -103,10 +77,10 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Subscribers List API
-  if (req.method === "GET" && action === "subscribers") {
+  // 3. Subscribers List API (Working Stable v1 Endpoint)
+  if (req.method === "GET" && (action === "subscribers" || action === "players")) {
     try {
-      const response = await fetch(`https://api.onesignal.com/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
+      const response = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
         method: "GET",
         headers: {
           "Authorization": authHeader,
@@ -139,7 +113,7 @@ export default async function handler(req, res) {
         targets = rawSubIds.map(id => String(id).trim());
       } else {
         try {
-          const fetchPlayers = await fetch(`https://api.onesignal.com/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
+          const fetchPlayers = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
             method: "GET",
             headers: {
               "Authorization": authHeader,
@@ -237,7 +211,7 @@ export default async function handler(req, res) {
         oneSignalPayload.web_buttons = webButtons;
       }
 
-      const response = await fetch("https://api.onesignal.com/notifications?c=push", {
+      const response = await fetch("https://onesignal.com/api/v1/notifications?c=push", {
         method: "POST",
         headers: {
           "Authorization": authHeader,
