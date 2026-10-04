@@ -38,13 +38,13 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.remove(), 4000);
 }
 
-// 1. AUTOMATIC DUAL TIMER ENGINE
+// 1. SAFE TIMER ENGINE (Sirf tab trigger hoga jab explicit Coming Soon + Timer status ho)
 function evaluateTimedResults() {
   const now = Date.now();
   results.forEach(async (r) => {
-    if (r.status === "Coming Soon + Timer") {
-      const liveTime = r.timeLive ? new Date(r.timeLive).getTime() : 0;
-      const availTime = r.timeAvailable ? new Date(r.timeAvailable).getTime() : 0;
+    if (r.status === "Coming Soon + Timer" && r.timeLive && r.timeAvailable) {
+      const liveTime = new Date(r.timeLive).getTime();
+      const availTime = new Date(r.timeAvailable).getTime();
 
       if (availTime > 0 && now >= availTime) {
         await update(ref(database, `results/${r.key}`), {
@@ -220,9 +220,12 @@ function setupListener() {
   onValue(ref(database, "results"), (snap) => {
     results = [];
     if (snap.exists()) {
-      snap.forEach(child => results.push({ key: child.key, ...child.val() }));
+      snap.forEach(child => {
+        results.push({ key: child.key, ...child.val() });
+      });
     }
-    results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    // Sort newest first
+    results.sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
     evaluateTimedResults();
     updateStatusCounters();
     render();
@@ -237,11 +240,16 @@ function updateStatusCounters() {
   let countAnnounced = 0;
 
   results.forEach(r => {
-    const st = r.status || "";
-    if (st === "Result Available" || st === "Live") countAvailable++;
-    else if (st === "Coming Soon + Timer") countTimed++;
-    else if (st === "Coming Soon") countComingSoon++;
-    else if (st === "Date Announced") countAnnounced++;
+    const st = (r.status || "").toLowerCase().trim();
+    if (st === "result available" || st === "live" || st === "available") {
+      countAvailable++;
+    } else if (st.includes("timer")) {
+      countTimed++;
+    } else if (st.includes("coming soon")) {
+      countComingSoon++;
+    } else if (st.includes("announced")) {
+      countAnnounced++;
+    }
   });
 
   const elAll = document.getElementById("countStatusAll");
@@ -278,21 +286,30 @@ function updateBulkActionBar() {
 
 function getFilteredResults() {
   return results.filter(r => {
-    if (activeCat !== "all" && r.category?.toLowerCase() !== activeCat) return false;
-    const st = r.status || "";
+    // 1. Category Filter
+    if (activeCat !== "all") {
+      const c = (r.category || "").toLowerCase().trim();
+      if (c !== activeCat.toLowerCase()) return false;
+    }
 
-    if (activeStatus === "available" && st !== "Result Available" && st !== "Live") return false;
-    if (activeStatus === "timed" && st !== "Coming Soon + Timer") return false;
-    if (activeStatus === "coming_soon" && st !== "Coming Soon") return false;
-    if (activeStatus === "announced" && st !== "Date Announced") return false;
+    // 2. Status Filter
+    if (activeStatus !== "all") {
+      const st = (r.status || "").toLowerCase().trim();
+      if (activeStatus === "available" && !st.includes("available") && st !== "live") return false;
+      if (activeStatus === "timed" && !st.includes("timer")) return false;
+      if (activeStatus === "coming_soon" && (!st.includes("coming soon") || st.includes("timer"))) return false;
+      if (activeStatus === "announced" && !st.includes("announced")) return false;
+    }
 
+    // 3. Search Query Filter
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
       const matchTitle = (r.title || "").toLowerCase().includes(q);
       const matchBoard = (r.boardOrUniversity || "").toLowerCase().includes(q);
-      const matchYear = (r.year || "").toLowerCase().includes(q);
+      const matchYear = String(r.year || "").toLowerCase().includes(q);
       if (!matchTitle && !matchBoard && !matchYear) return false;
     }
+
     return true;
   });
 }
@@ -316,17 +333,19 @@ function render() {
     card.style.borderColor = selectedResultKeys.has(r.key) ? "var(--accent-cyan)" : "var(--border-subtle)";
 
     let statusPill = `<span class="text-[9px] px-2 py-0.5 rounded font-bold" style="background-color:rgba(4,120,87,0.15); color:var(--accent-mint); border:1px solid rgba(4,120,87,0.3);">Available</span>`;
-    if (r.status === "Live") {
+    const stLower = (r.status || "").toLowerCase();
+    
+    if (stLower === "live") {
       statusPill = `<span class="text-[9px] px-2 py-0.5 rounded font-bold" style="background-color:rgba(190,18,60,0.15); color:var(--accent-rose); border:1px solid rgba(190,18,60,0.3);">🔴 Live Now</span>`;
-    } else if (r.status === "Coming Soon + Timer") {
+    } else if (stLower.includes("timer")) {
       statusPill = `<span class="text-[9px] px-2 py-0.5 rounded font-bold" style="background-color:rgba(180,83,9,0.15); color:var(--accent-amber); border:1px solid rgba(180,83,9,0.3);">⏳ Timed</span>`;
-    } else if (r.status === "Coming Soon") {
+    } else if (stLower.includes("coming soon")) {
       statusPill = `<span class="text-[9px] px-2 py-0.5 rounded font-bold" style="background-color:rgba(180,83,9,0.15); color:var(--accent-amber); border:1px solid rgba(180,83,9,0.3);">Coming Soon</span>`;
-    } else if (r.status === "Date Announced") {
+    } else if (stLower.includes("announced")) {
       statusPill = `<span class="text-[9px] px-2 py-0.5 rounded font-bold" style="background-color:rgba(14,116,144,0.15); color:var(--accent-cyan); border:1px solid rgba(14,116,144,0.3);">Announced</span>`;
     }
 
-    const isLiveOrAvail = r.status === "Result Available" || r.status === "Live";
+    const isLiveOrAvail = stLower.includes("available") || stLower === "live";
 
     card.innerHTML = `
       <div class="flex items-start gap-2.5">
@@ -335,7 +354,7 @@ function render() {
         <div class="min-w-0 flex-1">
           <div class="flex items-center justify-between gap-1 mb-1">
             <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold" style="background-color:var(--bg-elevated); color:var(--text-muted); border:1px solid var(--border-subtle);">${escapeHtml(r.category)}</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold" style="background-color:var(--bg-elevated); color:var(--text-muted); border:1px solid var(--border-subtle);">${escapeHtml(r.category || '10th')}</span>
               ${statusPill}
               <span class="text-[9px] px-1.5 py-0.5 rounded font-semibold" style="background-color:var(--bg-elevated); color:${r.notificationSent ? 'var(--accent-mint)' : 'var(--text-subtle)'};">${r.notificationSent ? 'Push Sent' : 'No Push'}</span>
             </div>
@@ -357,7 +376,7 @@ function render() {
               <span class="material-symbols-outlined text-12">language</span> Board Portal
             </a>
           ` : `
-            <a href="${escapeHtml(r.url)}" target="_blank" class="text-[10px] font-bold flex items-center gap-0.5 hover:underline" style="color:var(--accent-cyan);">
+            <a href="${escapeHtml(r.url || '#')}" target="_blank" class="text-[10px] font-bold flex items-center gap-0.5 hover:underline" style="color:var(--accent-cyan);">
               <span class="material-symbols-outlined text-12">link</span> S1
             </a>
             ${r.url2 ? `<a href="${escapeHtml(r.url2)}" target="_blank" class="text-[10px] font-bold flex items-center gap-0.5 hover:underline" style="color:var(--accent-mint);"><span class="material-symbols-outlined text-12">link</span> S2</a>` : ''}
@@ -526,18 +545,18 @@ function openModal(key = null) {
     const r = results.find(x => x.key === key);
     if (!r) return;
     document.getElementById("formResId").value = r.id;
-    document.getElementById("formCategory").value = r.category;
-    document.getElementById("formTitle").value = r.title;
-    document.getElementById("formLabel").value = r.label;
-    document.getElementById("formBoard").value = r.boardOrUniversity;
-    document.getElementById("formYear").value = r.year;
+    document.getElementById("formCategory").value = r.category || "10th";
+    document.getElementById("formTitle").value = r.title || "";
+    document.getElementById("formLabel").value = r.label || "";
+    document.getElementById("formBoard").value = r.boardOrUniversity || "";
+    document.getElementById("formYear").value = r.year || "";
     document.getElementById("formStatus").value = r.status || "Result Available";
-    document.getElementById("formPublished").value = r.published;
+    document.getElementById("formPublished").value = r.published || "Declared Officially";
     document.getElementById("formPortalUrl").value = r.portalUrl || "";
     document.getElementById("formUrl").value = r.url || "";
     document.getElementById("formUrl2").value = r.url2 || "";
     document.getElementById("formUrl3").value = r.url3 || "";
-    document.getElementById("formDescription").value = r.description;
+    document.getElementById("formDescription").value = r.description || "";
 
     if (r.timeLive) document.getElementById("formTimeLive").value = r.timeLive;
     if (r.timeAvailable) document.getElementById("formTimeAvailable").value = r.timeAvailable;
@@ -713,14 +732,12 @@ if (downloadBackupBtn) {
       const snap = await get(ref(database, "results"));
       const rawData = snap.exists() ? snap.val() : {};
 
-      // Formatted Timestamp String (e.g., 2026-10-04_13-50-00)
       const now = new Date();
       const pad = (n) => String(n).padStart(2, "0");
       const datePart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
       const timePart = `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
       const humanReadableTime = now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "medium" });
 
-      // Clean Results Array with Backup Metadata
       const backupPayload = {
         app: "Resultify",
         backup_created_at_human: humanReadableTime,
@@ -772,7 +789,6 @@ if (dropZoneArea && jsonFileInput) {
         const rawJson = JSON.parse(event.target.result);
         let itemsList = [];
 
-        // Support both Array of results or Object { results: [...] } or direct Firebase dump { key1: {...}, key2: {...} }
         if (Array.isArray(rawJson)) {
           itemsList = rawJson;
         } else if (rawJson.results && (Array.isArray(rawJson.results) || typeof rawJson.results === "object")) {
@@ -781,7 +797,6 @@ if (dropZoneArea && jsonFileInput) {
           itemsList = Object.values(rawJson);
         }
 
-        // Validate each item according to Firebase rules schema
         parsedResultsToUpload = itemsList.filter(item => {
           return item && typeof item === "object" && (item.title || item.name) && (item.id !== undefined || item.resultId !== undefined);
         });
@@ -825,7 +840,6 @@ if (startUploadSyncBtn) {
     for (let i = 0; i < totalToSync; i++) {
       const item = parsedResultsToUpload[i];
 
-      // Format strictly matching Firebase Rules
       const cleanData = {
         id: parseInt(item.id || item.resultId) || (Date.now() + i),
         title: String(item.title || item.name || "Untitled Result").trim(),
@@ -849,7 +863,6 @@ if (startUploadSyncBtn) {
       };
 
       try {
-        // Individual unique Firebase Push Key (No full database overwrite)
         const newEntryRef = push(ref(database, "results"));
         await set(newEntryRef, cleanData);
         syncedCount++;
@@ -858,7 +871,6 @@ if (startUploadSyncBtn) {
         failedCount++;
       }
 
-      // Update Live Progress
       const pct = Math.round(((i + 1) / totalToSync) * 100);
       if (uploadPercentText) uploadPercentText.textContent = `${pct}%`;
       if (uploadStatusText) uploadStatusText.textContent = `Syncing: ${syncedCount}/${totalToSync}...`;
