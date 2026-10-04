@@ -1,25 +1,19 @@
-// Resultify Maximum Security & Anti-Inspection Protocol
-
-// Security Guard is temporarily disabled for development & debugging.
-console.log("[Dev Mode] Security Guard Disabled for Debugging.");
-
- (function () {
+// Resultify Anti-Inspection & Integrity Guard
+(function () {
   'use strict';
 
-  // 1. Instant 403 Page Render & Memory Wiper
   function trigger403SecurityBlock(reason) {
     try {
       window.stop();
     } catch (e) {}
 
-    // Kill all running background timers
+    // Clear all running timers
     const highestId = window.setTimeout(() => {}, 0);
     for (let i = 0; i < highestId; i++) {
       window.clearTimeout(i);
       window.clearInterval(i);
     }
 
-    // Completely wipe and replace DOM to hide original source tree
     document.documentElement.innerHTML = `
       <!DOCTYPE html>
       <html lang="en">
@@ -78,7 +72,7 @@ console.log("[Dev Mode] Security Guard Disabled for Debugging.");
         <div class="card">
           <span class="badge">403 ACCESS TERMINATED</span>
           <h1>Security Policy Violation</h1>
-          <p>Inspect tool, source viewer, debugger, or proxy protocol detected. Console access is permanently blocked.</p>
+          <p>Inspect tool, source viewer, or unauthorized debug environment detected. Access has been restricted.</p>
           <div class="code">VIOLATION: ${reason}</div>
         </div>
       </body>
@@ -89,7 +83,7 @@ console.log("[Dev Mode] Security Guard Disabled for Debugging.");
     throw new Error("Execution terminated by security protocol: " + reason);
   }
 
-  // 2. Mobile In-Page Inspector (Eruda, vConsole, Floating Widgets) Killer
+  // 1. Mobile In-Page Inspector (Eruda, vConsole) Real-Time Detection
   function detectMobileDevTools() {
     if (
       window.eruda || 
@@ -109,7 +103,6 @@ console.log("[Dev Mode] Security Guard Disabled for Debugging.");
       trigger403SecurityBlock("MOBILE_VCONSOLE_DETECTED");
     }
 
-    // High z-index injected inspector shadow elements
     const shadowHost = document.querySelector('div[style*="z-index: 99999"]') || 
                        document.querySelector('div[style*="z-index: 2147483647"]');
     if (shadowHost && shadowHost.innerHTML.toLowerCase().includes("console")) {
@@ -117,7 +110,7 @@ console.log("[Dev Mode] Security Guard Disabled for Debugging.");
     }
   }
 
-  // 3. Clean All HTML Comments from DOM Tree (Hides leaked comments in Sources)
+  // 2. Remove HTML Comments from DOM Tree (Hides leaked structures in Source viewers)
   function removeHtmlComments() {
     const iterator = document.createNodeIterator(
       document.documentElement,
@@ -131,30 +124,7 @@ console.log("[Dev Mode] Security Guard Disabled for Debugging.");
     }
   }
 
-  // 4. High-Frequency Console Overwrite & Trap
-  try {
-    Object.defineProperty(window, 'console', {
-      get: function () {
-        trigger403SecurityBlock("CONSOLE_OBJECT_ACCESSED");
-      },
-      set: function () {}
-    });
-  } catch (e) {}
-
-  // 5. Continuous Hard Debugger Loop (Freezes execution if inspector opened)
-  const antiDebug = function () {
-    const startTime = performance.now();
-    (function () {
-      return false;
-    }
-    ["constructor"]("debugger")());
-    const endTime = performance.now();
-    if (endTime - startTime > 70) {
-      trigger403SecurityBlock("DEBUGGER_PAUSE_DETECTED");
-    }
-  };
-
-  // 6. Keyboard Shortcuts Block (Desktop & Mobile Hardware Keyboard)
+  // 3. Desktop DevTools Keyboard Shortcuts Block
   window.addEventListener('keydown', function (e) {
     if (
       e.key === 'F12' || 
@@ -169,7 +139,7 @@ console.log("[Dev Mode] Security Guard Disabled for Debugging.");
     }
   }, true);
 
-  // 7. Context Menu, Selection & Drag Lock
+  // 4. Context Menu, Selection & Drag Lock
   window.addEventListener('contextmenu', function (e) {
     e.preventDefault();
     return false;
@@ -185,46 +155,14 @@ console.log("[Dev Mode] Security Guard Disabled for Debugging.");
     }
   }, true);
 
-  // 8. Fast Real-Time VPN / Proxy Verification Hook
-  async function verifyConnectionIntegrity() {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-      const res = await fetch("https://ipapi.co/json/", { signal: timeoutId.signal });
-      clearTimeout(timeoutId);
-      
-      if (res.ok) {
-        const data = await res.json();
-        const org = (data.org || "").toLowerCase();
-        const asn = (data.asn || "").toLowerCase();
-        
-        const isSuspicious = 
-          org.includes("hosting") || 
-          org.includes("vpn") || 
-          org.includes("proxy") || 
-          org.includes("cloud") ||
-          asn.includes("hosting");
-
-        if (isSuspicious) {
-          trigger403SecurityBlock("SUSPICIOUS_VPN_PROXY_IP");
-        }
-      }
-    } catch (err) {}
-  }
-
-  // Bind Listeners & Intervals
+  // 5. Initialize Safe Guards
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", removeHtmlComments);
   } else {
     removeHtmlComments();
   }
 
-  setInterval(detectMobileDevTools, 300);
-  setInterval(antiDebug, 800);
+  setInterval(detectMobileDevTools, 400);
   setInterval(removeHtmlComments, 2000);
-  verifyConnectionIntegrity();
   detectMobileDevTools();
 })();
-
-
