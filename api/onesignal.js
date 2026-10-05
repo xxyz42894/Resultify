@@ -159,7 +159,68 @@ export default async function handler(req, res) {
     }
   }
 
-  // 5. Send Push Notification API
+  // 5. Official OneSignal Message Cancel / Delete API (NEW)
+  if (req.method === "DELETE" || (req.method === "POST" && (action === "delete_notification" || action === "cancel_notification"))) {
+    try {
+      let notificationId = req.query.notification_id || req.query.id;
+      if (!notificationId && req.body) {
+        const parsed = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+        notificationId = parsed.notificationId || parsed.id;
+      }
+
+      if (!notificationId) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          error: "Notification ID missing hai."
+        });
+      }
+
+      const targetUrl = `https://api.onesignal.com/notifications/${notificationId}?app_id=${ONESIGNAL_APP_ID}`;
+
+      const response = await fetch(targetUrl, {
+        method: "DELETE",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json"
+        }
+      });
+
+      let resData = {};
+      const responseText = await response.text();
+      try {
+        resData = JSON.parse(responseText);
+      } catch (ignored) {
+        resData = { rawResponse: responseText };
+      }
+
+      if (response.ok) {
+        return res.status(200).json({
+          success: true,
+          statusCode: 200,
+          data: resData
+        });
+      }
+
+      const errorMsg = resData.errors?.[0] || resData.error || `HTTP ${response.status} Error`;
+      return res.status(response.status).json({
+        success: false,
+        statusCode: response.status,
+        error: errorMsg,
+        errors: resData.errors || [errorMsg],
+        data: resData
+      });
+
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        statusCode: 500,
+        error: "Server Error: " + err.message
+      });
+    }
+  }
+
+  // 6. Send Push Notification API
   if (req.method === "POST") {
     try {
       const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
