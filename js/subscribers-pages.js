@@ -5,6 +5,9 @@ let searchQuery = "";
 let timeFilter = "all";
 let activePlayerBeingInspected = null;
 
+// Map to identify Duplicate/Ghost Devices
+let duplicateMap = new Map(); // Key: ip_model_os -> Array of subscribers
+
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)
@@ -76,6 +79,31 @@ function isUninstalledOrOptedOut(p) {
   return Boolean(p.invalid_identifier || p.opted_out || p.notification_types === -2);
 }
 
+// Build fingerprint key using Device Model, OS and IP address
+function getDeviceFingerprint(p) {
+  const model = String(p.device_model || "unknown").toLowerCase().trim();
+  const os = String(p.device_os || "unknown").toLowerCase().trim();
+  const ip = String(p.ip || "").trim();
+
+  // Agar IP available hai toh accurate key, warna model + os
+  if (ip && ip !== "not recorded") {
+    return `${ip}___${model}___${os}`;
+  }
+  return `${model}___${os}`;
+}
+
+// Compute duplicate device clusters
+function computeDuplicateMap(subList) {
+  duplicateMap = new Map();
+  subList.forEach(p => {
+    const key = getDeviceFingerprint(p);
+    if (!duplicateMap.has(key)) {
+      duplicateMap.set(key, []);
+    }
+    duplicateMap.get(key).push(p);
+  });
+}
+
 // Main Fetcher
 async function loadSubscribers() {
   const feed = document.getElementById("devicesFeed");
@@ -89,11 +117,12 @@ async function loadSubscribers() {
 
     if (!res.success || !res.players || res.players.length === 0) {
       feed.innerHTML = '<p class="text-center text-xs py-12 font-medium" style="color:var(--text-muted);">No subscribed devices found.</p>';
-      updateTelemetryCounters([], 0, 0, 0);
+      updateTelemetryCounters([], 0, 0, 0, 0);
       return;
     }
 
     players = res.players;
+    computeDuplicateMap(players);
     applyFiltersAndRender();
   } catch (err) {
     if (feed) feed.innerHTML = `<div class="p-4 rounded-xl border text-center text-xs text-rose-500">${escapeHtml(err.message)}</div>`;
@@ -110,9 +139,27 @@ function applyFiltersAndRender() {
   let onlineCount = 0;
   let inactiveCount = 0;
   let uninstalledCount = 0;
+  let duplicateCount = 0;
 
+  computeDuplicateMap(players);
+
+  // Count telemetry metrics
   players.forEach(p => {
-    if (isUninstalledOrOptedOut(p)) {
+    const isUninstalled = isUninstalledOrOptedOut(p);
+    const key = getDeviceFingerprint(p);
+    const cluster = duplicateMap.get(key) || [];
+
+    // Agar ek hi key ke 2 ya zyada devices hain toh duplicate count karo
+    if (cluster.length > 1) {
+      // Find latest device by created_at / last_active
+      const sorted = [...cluster].sort((a, b) => (b.created_at || b.last_active || 0) - (a.created_at || a.last_active || 0));
+      // Jo latest nahi hai wo dead duplicate hai
+      if (p.id !== sorted[0].id) {
+        duplicateCount++;
+      }
+    }
+
+    if (isUninstalled) {
       uninstalledCount++;
     } else {
       const diff = nowSec - (p.last_active || 0);
@@ -125,15 +172,20 @@ function applyFiltersAndRender() {
     }
   });
 
-  updateTelemetryCounters(players, onlineCount, inactiveCount, uninstalledCount);
+  updateTelemetryCounters(players, onlineCount, inactiveCount, uninstalledCount, duplicateCount);
 
   const filtered = players.filter(p => {
     const isUninstalled = isUninstalledOrOptedOut(p);
     const diffSec = nowSec - (p.last_active || 0);
     const isOnline = diffSec <= 120 && !isUninstalled;
+    const key = getDeviceFingerprint(p);
+    const cluster = duplicateMap.get(key) || [];
+    const isPartOfDuplicateCluster = cluster.length > 1;
 
-    if (timeFilter === "all") {
-      // Show all devices
+    if (timeFilter === "duplicates") {
+      if (!isPartOfDuplicateCluster) return false;
+    } else if (timeFilter === "all") {
+      // Show all
     } else if (timeFilter === "uninstalled") {
       if (!isUninstalled) return false;
     } else {
@@ -165,7 +217,8 @@ function applyFiltersAndRender() {
       const name = translateDeviceName(p.device_model).toLowerCase();
       const model = (p.device_model || "").toLowerCase();
       const subId = (p.id || "").toLowerCase();
-      if (!name.includes(q) && !model.includes(q) && !subId.includes(q)) {
+      const ip = (p.ip || "").toLowerCase();
+      if (!name.includes(q) && !model.includes(q) && !subId.includes(q) && !ip.includes(q)) {
         return false;
       }
     }
@@ -186,12 +239,33 @@ function applyFiltersAndRender() {
     const installDate = formatDateTime(p.created_at);
     const lastActiveRel = formatRelativeTime(p.last_active);
     const subId = p.id || "N/A";
+    const ipAddress = p.ip || "N/A";
+
+    // Duplicate detection check
+    const key = getDeviceFingerprint(p);
+    const cluster = duplicateMap.get(key) || [];
+    let isGhostDuplicate = false;
+    let isLatestOfCluster = false;
+
+    if (cluster.length > 1) {
+      const sorted = [...cluster].sort((a, b) => (b.created_at || b.last_active || 0) - (a.created_at || a.last_active || 0));
+      if (p.id === sorted[0].id) {
+        isLatestOfCluster = true;
+      } else {
+        isGhostDuplicate = true;
+      }
+    }
 
     const card = document.createElement("div");
-    card.className = "p-3.5 rounded-2xl surface-card cursor-pointer transition-all hover:border-[var(--accent-mint)] space-y-2.5";
+    card.className = "p-3.5 rounded-2xl surface-card cursor-pointer transition-all hover:border-[var(--accent-mint)] space-y-2.5 border";
+    card.style.borderColor = isGhostDuplicate ? "rgba(225, 29, 72, 0.45)" : "var(--border-subtle)";
     
     let statusPillHtml = '';
-    if (isUnsubscribed) {
+    if (isGhostDuplicate) {
+      statusPillHtml = '<span class="text-[8px] px-1.5 py-0.2 rounded font-mono font-bold mt-0.5" style="background-color:rgba(190,18,60,0.2); color:var(--accent-rose); border:1px solid rgba(190,18,60,0.4);">⚠️ DEAD / DUPLICATE</span>';
+    } else if (isLatestOfCluster && cluster.length > 1) {
+      statusPillHtml = '<span class="text-[8px] px-1.5 py-0.2 rounded font-mono font-bold mt-0.5" style="background-color:rgba(4,120,87,0.2); color:var(--accent-mint); border:1px solid rgba(4,120,87,0.4);">LATEST ACTIVE</span>';
+    } else if (isUnsubscribed) {
       statusPillHtml = '<span class="text-[8px] px-1.5 py-0.2 rounded font-mono font-bold mt-0.5" style="background-color:rgba(190,18,60,0.15); color:var(--accent-rose); border:1px solid rgba(190,18,60,0.3);">UNINSTALLED</span>';
     } else if (isOnlineNow) {
       statusPillHtml = '<span class="text-[8px] px-1.5 py-0.2 rounded font-mono font-bold mt-0.5" style="background-color:rgba(4,120,87,0.15); color:var(--accent-mint); border:1px solid rgba(4,120,87,0.3);">ONLINE</span>';
@@ -200,15 +274,15 @@ function applyFiltersAndRender() {
     card.innerHTML = `
       <div class="flex items-start justify-between gap-2">
         <div class="flex items-center gap-2.5 min-w-0 flex-1">
-          <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style="background-color:rgba(4,120,87,0.12); border:1px solid rgba(4,120,87,0.3); color:var(--accent-mint);">
-            <span class="material-symbols-outlined text-18">smartphone</span>
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style="background-color:${isGhostDuplicate ? 'rgba(190,18,60,0.15)' : 'rgba(4,120,87,0.12)'}; border:1px solid ${isGhostDuplicate ? 'rgba(190,18,60,0.4)' : 'rgba(4,120,87,0.3)'}; color:${isGhostDuplicate ? 'var(--accent-rose)' : 'var(--accent-mint)'};">
+            <span class="material-symbols-outlined text-18">${isGhostDuplicate ? 'phonelink_erase' : 'smartphone'}</span>
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5 flex-wrap">
               <h4 class="text-xs font-bold truncate" style="color:var(--text-primary);">${escapeHtml(friendlyName)}</h4>
               <span class="text-[10px] font-mono" style="color:var(--text-muted);">(${escapeHtml(p.device_model || 'Unknown')})</span>
             </div>
-            <p class="text-[10px]" style="color:var(--text-muted);">${escapeHtml(p.country || 'IN')} • Android ${escapeHtml(p.device_os || 'N/A')}</p>
+            <p class="text-[10px]" style="color:var(--text-muted);">${escapeHtml(p.country || 'IN')} • Android ${escapeHtml(p.device_os || 'N/A')} • IP: <span class="font-mono font-bold" style="color:var(--accent-cyan);">${escapeHtml(ipAddress)}</span></p>
           </div>
         </div>
         <div class="flex flex-col items-end shrink-0">
@@ -230,6 +304,17 @@ function applyFiltersAndRender() {
         <span class="font-mono font-semibold" style="color:var(--text-primary);">${installDate}</span>
       </div>
 
+      ${isGhostDuplicate ? `
+      <div class="flex items-center justify-between text-[10px] px-2 py-1.5 rounded-lg border pt-1 mt-1" style="background-color:rgba(190,18,60,0.08); border-color:rgba(190,18,60,0.3); color:var(--accent-rose);">
+        <span class="flex items-center gap-1">
+          <span class="material-symbols-outlined text-14">info</span>
+          <span>App clear data / Ghost duplicate</span>
+        </span>
+        <button type="button" class="quickDeleteGhostBtn text-[10px] font-bold px-2 py-0.5 rounded border shadow-sm transition-all" style="background-color:var(--accent-rose); color:#FFFFFF;" data-id="${escapeHtml(subId)}">
+          Delete Ghost ID
+        </button>
+      </div>` : ''}
+
       ${isUnsubscribed ? `
       <div class="flex items-center justify-between text-[11px] px-0.5 pt-1 border-t" style="border-color:var(--border-subtle); color:var(--accent-rose);">
         <div class="flex items-center gap-1">
@@ -240,21 +325,52 @@ function applyFiltersAndRender() {
       </div>` : ''}
     `;
 
-    card.addEventListener("click", () => openProfile(p));
+    card.addEventListener("click", (e) => {
+      // Agar direct delete button dabaya toh profile sheet na kholein
+      if (e.target.closest(".quickDeleteGhostBtn")) {
+        e.stopPropagation();
+        triggerDirectDelete(subId);
+        return;
+      }
+      openProfile(p);
+    });
+
     feed.appendChild(card);
   });
 }
 
-function updateTelemetryCounters(allList, onlineCount, inactiveCount, uninstalledCount) {
+function updateTelemetryCounters(allList, onlineCount, inactiveCount, uninstalledCount, duplicateCount) {
   const statTotal = document.getElementById("statTotalSub");
   const statOnline = document.getElementById("statOnlineSub");
   const statInactive = document.getElementById("statInactiveSub");
   const statUninstalled = document.getElementById("statUninstalledSub");
+  const statDuplicates = document.getElementById("statDuplicatesSub");
 
   if (statTotal) statTotal.textContent = allList.length;
   if (statOnline) statOnline.textContent = onlineCount;
   if (statInactive) statInactive.textContent = inactiveCount;
   if (statUninstalled) statUninstalled.textContent = uninstalledCount;
+  if (statDuplicates) statDuplicates.textContent = duplicateCount;
+}
+
+// Quick Inline Delete for Ghost IDs
+async function triggerDirectDelete(subId) {
+  if (!confirm(`Are you sure you want to permanently delete this dead duplicate ID from OneSignal?\n\nSub ID: ${subId}`)) {
+    return;
+  }
+
+  try {
+    const res = await deleteOneSignalSubscriber(subId);
+    if (res.success) {
+      showToast("Ghost duplicate subscriber deleted permanently!", "success");
+      players = players.filter(item => item.id !== subId);
+      applyFiltersAndRender();
+    } else {
+      showToast("Delete failed: " + (res.error || "OneSignal error"), "error");
+    }
+  } catch (err) {
+    showToast("Exception: " + err.message, "error");
+  }
 }
 
 // Bottom Sheet Profile Inspector
@@ -378,6 +494,15 @@ if (timeFilterSelect) {
 }
 
 // Quick-Pill Tap Filters
+const pillDuplicates = document.getElementById("pillDuplicates");
+if (pillDuplicates) {
+  pillDuplicates.addEventListener("click", () => {
+    if (timeFilterSelect) timeFilterSelect.value = "duplicates";
+    timeFilter = "duplicates";
+    applyFiltersAndRender();
+  });
+}
+
 const pillOnline = document.getElementById("pillOnline");
 if (pillOnline) {
   pillOnline.addEventListener("click", () => {

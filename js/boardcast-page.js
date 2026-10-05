@@ -1,12 +1,18 @@
 import { ref, set, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 import { database } from "./firebase-config.js";
-import { getOneSignalSubscribers, sendPushNotification } from "./onesignal-api.js";
+import { getOneSignalSubscribers, sendPushNotification, deleteOneSignalSubscriber } from "./onesignal-api.js";
 
 // DOM Elements
 const form = document.getElementById("broadcastForm");
 const targetSelect = document.getElementById("targetAudience");
 const audienceCountBadge = document.getElementById("targetAudienceCountBadge");
 const audienceExplanationText = document.getElementById("audienceExplanationText");
+
+// Ghost Device Controls
+const ghostDeviceAlertBox = document.getElementById("ghostDeviceAlertBox");
+const ghostCountBadge = document.getElementById("ghostCountBadge");
+const toggleIgnoreGhost = document.getElementById("toggleIgnoreGhost");
+const ghostDevicesList = document.getElementById("ghostDevicesList");
 
 // Custom Range Picker Controls
 const customRangePickerBox = document.getElementById("customRangePickerBox");
@@ -67,6 +73,7 @@ const modalTemplatesList = document.getElementById("modalTemplatesList");
 
 let allSubscribers = [];
 let officialTestUsers = [];
+let detectedGhostIds = new Set(); // Stores dead duplicate IDs
 
 // DEFAULT PRESETS
 const DEFAULT_PRESETS = [
@@ -237,24 +244,120 @@ document.querySelectorAll('input[name="bcPriority"]').forEach(r => {
   r.addEventListener("change", updateMockup);
 });
 
-// Helper: Installed Device Check
 function isInstalledSubscriber(p) {
   return !p.invalid_identifier && !p.opted_out && p.notification_types !== -2;
 }
 
-// 2. AUDIENCE CALCULATION ENGINE
+// Fingerprint for same device: IP + Model + OS
+function getDeviceFingerprint(p) {
+  const model = String(p.device_model || "unknown").toLowerCase().trim();
+  const os = String(p.device_os || "unknown").toLowerCase().trim();
+  const ip = String(p.ip || "").trim();
+  if (ip && ip !== "not recorded") {
+    return `${ip}___${model}___${os}`;
+  }
+  return `${model}___${os}`;
+}
+
+// 2. GHOST / DUPLICATE DETECTOR ENGINE
+function analyzeGhostDevices(subList) {
+  const clusterMap = new Map();
+  detectedGhostIds = new Set();
+  const ghostListDetails = [];
+
+  subList.forEach(p => {
+    const key = getDeviceFingerprint(p);
+    if (!clusterMap.has(key)) clusterMap.set(key, []);
+    clusterMap.get(key).push(p);
+  });
+
+  clusterMap.forEach((devices) => {
+    if (devices.length > 1) {
+      // Sort: Newest active device first
+      const sorted = [...devices].sort((a, b) => (b.created_at || b.last_active || 0) - (a.created_at || a.last_active || 0));
+      // First is latest active, remaining are ghost duplicates
+      for (let i = 1; i < sorted.length; i++) {
+        detectedGhostIds.add(sorted[i].id);
+        ghostListDetails.push(sorted[i]);
+      }
+    }
+  });
+
+  renderGhostUI(ghostListDetails);
+}
+
+function renderGhostUI(ghostDevices) {
+  if (!ghostDeviceAlertBox || !ghostCountBadge || !ghostDevicesList) return;
+
+  if (ghostDevices.length === 0) {
+    ghostDeviceAlertBox.classList.add("hidden");
+    return;
+  }
+
+  ghostDeviceAlertBox.classList.remove("hidden");
+  ghostCountBadge.textContent = `${ghostDevices.length} Dead Ghost ID${ghostDevices.length === 1 ? '' : 's'}`;
+  ghostDevicesList.innerHTML = "";
+
+  ghostDevices.forEach(d => {
+    const row = document.createElement("div");
+    row.className = "flex items-center justify-between p-2 rounded-xl border surface-card text-[10px]";
+    row.style.borderColor = "var(--border-subtle)";
+
+    const subIdShort = d.id ? `${d.id.slice(0, 16)}...` : "Unknown";
+
+    row.innerHTML = `
+      <div class="min-w-0 flex-1 pr-2">
+        <span class="font-bold text-rose-500 block truncate">${escapeHtml(d.device_model || 'Android')} (Ghost ID)</span>
+        <span class="font-mono text-[9px] text-muted block select-all">Sub: ${escapeHtml(subIdShort)}</span>
+        <span class="text-[9px] text-muted">IP: ${escapeHtml(d.ip || 'N/A')}</span>
+      </div>
+      <button type="button" class="quickDeleteGhostBtn text-[10px] font-bold px-2 py-1 rounded border shadow-sm transition-all shrink-0" style="background-color: var(--accent-rose); color: #FFFFFF;" data-id="${escapeHtml(d.id)}">
+        Delete ID
+      </button>
+    `;
+
+    row.querySelector(".quickDeleteGhostBtn").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Delete ghost subscriber ${d.id} from OneSignal?`)) return;
+      try {
+        const res = await deleteOneSignalSubscriber(d.id);
+        if (res.success) {
+          showToast("Ghost ID deleted!", "success");
+          allSubscribers = allSubscribers.filter(item => item.id !== d.id);
+          analyzeGhostDevices(allSubscribers);
+          updateAudienceUI();
+        } else {
+          showToast("Delete failed: " + res.error, "error");
+        }
+      } catch (err) {
+        showToast("Error: " + err.message, "error");
+      }
+    });
+
+    ghostDevicesList.appendChild(row);
+  });
+}
+
+// 3. AUDIENCE CALCULATION ENGINE WITH GHOST FILTER
 function getAudienceTargets(mode) {
   const nowSec = Math.floor(Date.now() / 1000);
-  const installedList = allSubscribers.filter(isInstalledSubscriber);
+  let installedList = (allSubscribers || []).filter(isInstalledSubscriber);
+
+  // Check if Ghost filter is enabled
+  const shouldIgnoreGhost = (mode === "all_clean") || (toggleIgnoreGhost && toggleIgnoreGhost.checked && mode !== "all_raw");
+
+  if (shouldIgnoreGhost && detectedGhostIds.size > 0) {
+    installedList = installedList.filter(p => !detectedGhostIds.has(p.id));
+  }
 
   switch (mode) {
-    case "all":
+    case "all_clean":
+    case "all_raw":
       return installedList;
 
     case "custom_active_range": {
       const minDays = Math.max(0, parseInt(inputMinDays?.value) || 0);
       const maxDays = Math.max(minDays, parseInt(inputMaxDays?.value) || 7);
-
       const minSec = minDays * 86400;
       const maxSec = maxDays * 86400;
 
@@ -275,11 +378,10 @@ function getAudienceTargets(mode) {
     }
 
     case "testing_all":
-      return officialTestUsers;
-
     case "testing_specific": {
-      const selectedBox = testersCheckboxList?.querySelectorAll('input[name="selectedTester"]:checked');
-      const selectedIds = selectedBox ? Array.from(selectedBox).map(b => b.value) : [];
+      const selectedBoxes = testersCheckboxList?.querySelectorAll('input[name="selectedTester"]:checked');
+      if (!selectedBoxes || selectedBoxes.length === 0) return [];
+      const selectedIds = Array.from(selectedBoxes).map(b => b.value);
       return officialTestUsers.filter(p => selectedIds.includes(p.id));
     }
 
@@ -289,12 +391,12 @@ function getAudienceTargets(mode) {
 }
 
 function updateAudienceUI() {
-  const mode = targetSelect ? targetSelect.value : "all";
+  const mode = targetSelect ? targetSelect.value : "all_clean";
   const matched = getAudienceTargets(mode);
 
   if (audienceCountBadge) {
-    if (mode === "testing_all" && officialTestUsers.length === 0) {
-      audienceCountBadge.textContent = "Segment: Test Users";
+    if (mode === "testing_all" || mode === "testing_specific") {
+      audienceCountBadge.textContent = `${matched.length} Test Device${matched.length === 1 ? '' : 's'}`;
     } else {
       audienceCountBadge.textContent = `${matched.length} Devices Target`;
     }
@@ -322,11 +424,12 @@ function updateAudienceUI() {
   // Explanation Text
   if (audienceExplanationText) {
     const explanations = {
-      all: "Sabhi active subscribed devices par message deliver hoga.",
+      all_clean: "Dead duplicate/ghost devices ko hata kar sabhi active devices ko message jayega.",
+      all_raw: "Sabhi devices (including dead ghost duplicates) par message dispatch hoga.",
       custom_active_range: `Pichhle ${inputMinDays?.value || 0} din se ${inputMaxDays?.value || 7} din ke beech active rahe users ko message jayega.`,
       custom_inactive_threshold: `Jo users pichhle ${inputInactiveDays?.value || 14} din se app bilkul nahi khole, unhi ko jayega.`,
-      testing_all: "OneSignal documentation ke anusar 'Test Users' segment ke sabhi official testers ko deliver hoga.",
-      testing_specific: "Neeche list se select kiye gaye official test device(s) ko deliver hoga."
+      testing_all: "Neeche tick kiye gaye test device(s) ko push deliver hoga.",
+      testing_specific: "Neeche tick kiye gaye test device(s) ko push deliver hoga."
     };
     audienceExplanationText.textContent = explanations[mode] || "";
   }
@@ -341,7 +444,7 @@ function updateAudienceUI() {
   }
 }
 
-// Live Listeners to Range Inputs
+// Live Listeners to Range Inputs & Ghost Toggle
 [inputMinDays, inputMaxDays, inputInactiveDays].forEach(input => {
   if (input) {
     input.addEventListener("input", updateAudienceUI);
@@ -349,31 +452,37 @@ function updateAudienceUI() {
   }
 });
 
-// 3. ONESIGNAL OFFICIAL TEST USERS LOADER (Strict: No Regular User Fallback)
+if (toggleIgnoreGhost) {
+  toggleIgnoreGhost.addEventListener("change", updateAudienceUI);
+}
+
+// 4. TAG-BASED TEST USERS DETECTOR
 async function loadOneSignalSubscribersAndTesters() {
   if (testersCheckboxList) {
-    testersCheckboxList.innerHTML = '<p class="text-[11px]" style="color: var(--text-muted);">Loading OneSignal test registry...</p>';
+    testersCheckboxList.innerHTML = '<p class="text-[11px]" style="color: var(--text-muted);">Fetching official test devices from OneSignal...</p>';
   }
 
   try {
     const res = await getOneSignalSubscribers();
     allSubscribers = res.players || (Array.isArray(res) ? res : []);
 
-    // Strict OneSignal Test User Filter: test_type 1 (dev) ya 2 (dashboard test subscription)
-    // Ya name/external_user_id jisme tester identify ho
+    // Analyze Ghost Duplicates across all subscribers
+    analyzeGhostDevices(allSubscribers);
+
+    // Exact Tag Match: tags.test_user
     officialTestUsers = allSubscribers.filter(p => {
-      const hasTestType = p.test_type === 1 || p.test_type === 2;
-      const hasTestUserTag = p.test_user_name || p.tags?.test_user === "true";
-      const isMyPhoneName = (p.device_model || "").toLowerCase().includes("my phone");
-      return Boolean(hasTestType || hasTestUserTag || isMyPhoneName);
+      return Boolean(p.tags && p.tags.test_user);
     });
 
     renderTestersList();
-    updateAudienceUI();
   } catch (err) {
+    allSubscribers = [];
+    officialTestUsers = [];
     if (testersCheckboxList) {
-      testersCheckboxList.innerHTML = `<p class="text-[11px] text-rose-500">Error loading testers: ${err.message}</p>`;
+      testersCheckboxList.innerHTML = `<p class="text-[11px] text-rose-500">Error: ${err.message}</p>`;
     }
+  } finally {
+    updateAudienceUI();
   }
 }
 
@@ -383,10 +492,10 @@ function renderTestersList() {
 
   if (officialTestUsers.length === 0) {
     testersCheckboxList.innerHTML = `
-      <div class="p-2.5 rounded-xl border space-y-1" style="border-color: rgba(180,83,9,0.3); background: rgba(180,83,9,0.06);">
-        <p class="text-[11px] font-bold" style="color: var(--accent-amber);">Official Test Subscriptions Ready</p>
+      <div class="p-3 rounded-xl border space-y-1" style="border-color: rgba(180,83,9,0.3); background: rgba(180,83,9,0.06);">
+        <p class="text-[11px] font-bold" style="color: var(--accent-amber);">No Test Devices Detected with Tag "test_user"</p>
         <p class="text-[10px]" style="color: var(--text-muted);">
-          OneSignal 'Test Users' segment ke zariye direct test push deliver hoga.
+          OneSignal dashboard me user profile ke <b>Data tags</b> me <code>Key: test_user</code> aur <code>Value: Device Name</code> save hona chahiye.
         </p>
       </div>
     `;
@@ -399,47 +508,53 @@ function renderTestersList() {
   selectAllRow.style.borderColor = "var(--border-subtle)";
   selectAllRow.innerHTML = `
     <label class="flex items-center gap-1.5 text-[11px] font-bold cursor-pointer" style="color: var(--accent-mint);">
-      <input type="checkbox" id="selectAllTestersCheckbox" checked class="rounded accent-emerald-600">
-      <span>Select All Official Testers (${officialTestUsers.length})</span>
+      <input type="checkbox" id="selectAllTestersCheckbox" class="rounded accent-emerald-600">
+      <span>Select All Testers (${officialTestUsers.length})</span>
     </label>
   `;
   testersCheckboxList.appendChild(selectAllRow);
 
   const selectAllBox = selectAllRow.querySelector("#selectAllTestersCheckbox");
 
-  // Render Checkbox for Each Official Tester
+  // Render Checkbox for Each Detected Test Device
   officialTestUsers.forEach((tester) => {
     const row = document.createElement("label");
     row.className = "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all border surface-card text-[11px]";
     row.style.borderColor = "var(--border-subtle)";
 
-    const deviceName = tester.test_user_name || tester.device_model || "My Phone (Official Tester)";
-    const subIdShort = tester.id ? tester.id.slice(0, 14) + "..." : "Unknown";
+    const displayName = tester.tags.test_user || tester.device_model || "Test Device";
+    const subIdFull = tester.id || "";
+    const subIdShort = subIdFull ? subIdFull.slice(0, 18) + "..." : "Unknown";
 
     row.innerHTML = `
-      <div class="flex items-center gap-2">
-        <input type="checkbox" name="selectedTester" value="${tester.id}" checked class="rounded accent-emerald-600 tester-checkbox">
-        <div>
-          <span class="font-bold block" style="color: var(--text-primary);">${escapeHtml(deviceName)}</span>
-          <span class="font-mono text-[9px]" style="color: var(--text-muted);">Sub ID: ${escapeHtml(subIdShort)}</span>
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <input type="checkbox" name="selectedTester" value="${subIdFull}" class="rounded accent-emerald-600 tester-checkbox shrink-0">
+        <div class="min-w-0 flex-1">
+          <span class="font-bold block truncate" style="color: var(--text-primary);">${escapeHtml(displayName)}</span>
+          <span class="font-mono text-[9px] select-all block" style="color: var(--text-muted);">Sub ID: ${escapeHtml(subIdShort)}</span>
         </div>
       </div>
-      <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-bold" style="background: rgba(4,120,87,0.15); color: var(--accent-mint);">TESTER</span>
+      <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0 ml-1" style="background: rgba(4,120,87,0.15); color: var(--accent-mint);">TESTER</span>
     `;
 
     testersCheckboxList.appendChild(row);
   });
 
+  const individualCheckboxes = testersCheckboxList.querySelectorAll('input[name="selectedTester"]');
+  individualCheckboxes.forEach(cb => cb.checked = true);
+  if (selectAllBox) selectAllBox.checked = true;
+
   if (selectAllBox) {
     selectAllBox.addEventListener("change", () => {
-      const boxes = testersCheckboxList.querySelectorAll('input[name="selectedTester"]');
-      boxes.forEach(b => b.checked = selectAllBox.checked);
+      individualCheckboxes.forEach(b => b.checked = selectAllBox.checked);
       updateAudienceUI();
     });
   }
 
-  testersCheckboxList.querySelectorAll('input[name="selectedTester"]').forEach(b => {
+  individualCheckboxes.forEach(b => {
     b.addEventListener("change", () => {
+      const allChecked = Array.from(individualCheckboxes).every(cb => cb.checked);
+      if (selectAllBox) selectAllBox.checked = allChecked;
       updateAudienceUI();
     });
   });
@@ -453,7 +568,7 @@ if (refreshDevsBtn) {
   refreshDevsBtn.addEventListener("click", loadOneSignalSubscribersAndTesters);
 }
 
-// 4. BANNER TOGGLES MUTUAL SWITCH
+// 5. BANNER TOGGLES MUTUAL SWITCH
 allToggles.forEach(tog => {
   if (!tog) return;
   tog.addEventListener("change", () => {
@@ -465,7 +580,7 @@ allToggles.forEach(tog => {
   });
 });
 
-// 5. TEMPLATES ENGINE
+// 6. TEMPLATES ENGINE
 async function fetchAllTemplatesList() {
   const combined = [...DEFAULT_PRESETS];
   try {
@@ -574,7 +689,7 @@ if (closeTemplateModalBtn && templateModal) {
   closeTemplateModalBtn.addEventListener("click", () => templateModal.classList.add("hidden"));
 }
 
-// 6. FORM DISPATCH ENGINE (OFFICIAL TARGETING)
+// 7. FORM DISPATCH ENGINE (CLEAN TARGET FILTERING)
 if (form) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -590,25 +705,28 @@ if (form) {
     if (!title || !body) return;
 
     let targetIds = [];
-    let includedSegments = null;
 
-    if (targetMode === "testing_all") {
-      // Official OneSignal: Send via "Test Users" Segment
-      includedSegments = ["Test Users"];
+    if (targetMode === "testing_all" || targetMode === "testing_specific") {
+      const checkedBoxes = testersCheckboxList?.querySelectorAll('input[name="selectedTester"]:checked');
+      if (!checkedBoxes || checkedBoxes.length === 0) {
+        alert("Kripya kam se kam ek test device check karein.");
+        return;
+      }
+      targetIds = Array.from(checkedBoxes).map(b => b.value);
     } else {
       const targetDevices = getAudienceTargets(targetMode);
       targetIds = targetDevices.map(d => d.id);
+    }
 
-      if (targetIds.length === 0) {
-        alert(`No devices found for target audience: "${targetSelect.options[targetSelect.selectedIndex].text}".`);
-        return;
-      }
+    if (!targetIds || targetIds.length === 0) {
+      alert(`Koi valid target device nahi mila.`);
+      return;
     }
 
     const submitBtn = document.getElementById("bcSubmitBtn");
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = `<span class="material-symbols-outlined text-18 animate-spin">refresh</span> Dispatching...`;
+      submitBtn.innerHTML = `<span class="material-symbols-outlined text-18 animate-spin">refresh</span> Dispatching (${targetIds.length} Device${targetIds.length === 1 ? '' : 's'})...`;
     }
 
     const actionButtons = [];
@@ -624,15 +742,10 @@ if (form) {
       target_channel: "push",
       headings: { en: title },
       contents: { en: body },
+      include_subscription_ids: targetIds,
       priority_mode: selectedMode,
       existing_android_channel_id: selectedChannel
     };
-
-    if (includedSegments) {
-      oneSignalPayload.included_segments = includedSegments;
-    } else {
-      oneSignalPayload.include_subscription_ids = targetIds;
-    }
 
     if (selectedMode === "urgent") {
       oneSignalPayload.priority = 10;
@@ -665,7 +778,7 @@ if (form) {
 
       if (outgoingPayloadJson) outgoingPayloadJson.textContent = JSON.stringify(raw.outgoingPayloadSent || oneSignalPayload, null, 2);
       if (rawJsonResponse) rawJsonResponse.textContent = JSON.stringify(raw.rawOneSignalResponse || raw, null, 2);
-      if (payloadItemsCount) payloadItemsCount.textContent = includedSegments ? `(Segment: Test Users)` : `(${targetIds.length} Target IDs)`;
+      if (payloadItemsCount) payloadItemsCount.textContent = `(${targetIds.length} Target ID${targetIds.length === 1 ? '' : 's'})`;
 
       const isSuccess = Boolean(pushRes.success && pushRes.id);
 
@@ -674,13 +787,12 @@ if (form) {
           respStatusBadge.textContent = `HTTP ${pushRes.statusCode || 200} OK`;
           respStatusBadge.style.cssText = "background-color:rgba(4,120,87,0.15); color:var(--accent-mint); border:1px solid rgba(4,120,87,0.3);";
         }
-        if (respRecipientsVal) respRecipientsVal.textContent = pushRes.recipients || targetIds.length || 1;
+        if (respRecipientsVal) respRecipientsVal.textContent = pushRes.recipients || targetIds.length;
         if (respIdVal) {
           respIdVal.textContent = pushRes.id;
           respIdVal.style.color = "var(--accent-mint)";
         }
 
-        // Firebase Announcement Sync
         let bannerType = null;
         if (toggleUpdate?.checked) bannerType = "UPDATE";
         if (toggleNotice?.checked) bannerType = "NOTICE";
@@ -696,12 +808,12 @@ if (form) {
               url: url || "",
               updatedAt: Date.now()
             });
-            showToast(`Sent & pinned as ${bannerType} banner!`, "success");
+            showToast(`Sent to ${targetIds.length} device(s) & pinned banner!`, "success");
           } catch (firebaseErr) {
-            showToast(`Push sent successfully!`, "info");
+            showToast(`Push sent successfully to ${targetIds.length} device(s)!`, "info");
           }
         } else {
-          showToast(`Delivered successfully!`, "success");
+          showToast(`Delivered successfully to ${targetIds.length} device(s)!`, "success");
         }
       } else {
         if (respStatusBadge) {
@@ -745,6 +857,6 @@ if (form) {
   });
 }
 
-// Initial Sync
+// Initial Run
 updateMockup();
 loadOneSignalSubscribersAndTesters();
