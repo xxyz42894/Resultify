@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- Sabse pehle security script load honi chahiye -->
   <script src="./js/security-guard.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Resultify - Notifications History</title>
@@ -53,7 +52,7 @@
 
   <!-- Notification Analytics Detail Modal (Bottom Sheet) -->
   <div id="messageDetailModal" class="fixed inset-0 z-50 hidden backdrop-blur-sm flex flex-col justify-end bg-black/60">
-    <div class="border-t rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl animate-sheet-up surface-card p-4 space-y-3" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+    <div class="border-t rounded-t-3xl max-h-[88vh] flex flex-col shadow-2xl animate-sheet-up surface-card p-4 space-y-3" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
       <div class="w-10 h-1 rounded-full mx-auto mb-1 shrink-0" style="background-color: var(--border-subtle);"></div>
       
       <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-subtle);">
@@ -111,6 +110,18 @@
             <span id="detId" class="font-mono select-all text-[9px] truncate max-w-[190px]">--</span>
           </div>
         </div>
+      </div>
+
+      <!-- Action Buttons in Detail Modal (Cancel/Delete Message + Close) -->
+      <div class="p-3 border-t shrink-0 space-y-2" style="border-color: var(--border-subtle); background-color: var(--bg-void);">
+        <button id="cancelMsgBtn" type="button" class="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border" style="background-color: rgba(190, 18, 60, 0.1); border-color: rgba(190, 18, 60, 0.3); color: var(--accent-rose);">
+          <span class="material-symbols-outlined text-16">delete_forever</span>
+          <span>Delete / Cancel Message</span>
+        </button>
+
+        <button id="bottomCloseModalBtn" type="button" class="w-full py-2.5 rounded-xl text-xs font-bold" style="background-color: var(--bg-elevated); color: var(--text-primary);">
+          Close Details
+        </button>
       </div>
     </div>
   </div>
