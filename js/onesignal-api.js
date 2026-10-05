@@ -21,7 +21,11 @@ async function callOneSignalApi(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(data.error || `HTTP ${response.status} Error`);
+    const errorMsg = data.error || (data.errors && data.errors[0]) || `HTTP ${response.status} Error`;
+    const err = new Error(errorMsg);
+    err.statusCode = response.status;
+    err.data = data;
+    throw err;
   }
 
   return data;
@@ -62,6 +66,26 @@ export async function getOneSignalNotifications(offset = 0) {
       totalCount: 0,
       notifications: [],
       error: error.message
+    };
+  }
+}
+
+// Cancel / Delete Notification from OneSignal (NEW)
+export async function cancelOneSignalNotification(notificationId) {
+  try {
+    const res = await callOneSignalApi(`action=delete_notification&notification_id=${notificationId}`, {
+      method: "DELETE"
+    });
+    return {
+      success: Boolean(res.success),
+      data: res.data || res
+    };
+  } catch (error) {
+    return {
+      success: false,
+      statusCode: error.statusCode || 500,
+      error: error.message,
+      data: error.data || {}
     };
   }
 }

@@ -1,4 +1,4 @@
-import { getOneSignalNotifications } from "./onesignal-api.js";
+import { getOneSignalNotifications, cancelOneSignalNotification } from "./onesignal-api.js";
 
 const listFeed = document.getElementById("messagesListFeed");
 const searchInput = document.getElementById("searchMsgInput");
@@ -8,6 +8,9 @@ const totalBadge = document.getElementById("totalMsgsBadge");
 // Modal Elements
 const modal = document.getElementById("messageDetailModal");
 const closeModalBtn = document.getElementById("closeDetailModalBtn");
+const bottomCloseModalBtn = document.getElementById("bottomCloseModalBtn");
+const cancelMsgBtn = document.getElementById("cancelMsgBtn");
+
 const detTitle = document.getElementById("detTitle");
 const detBody = document.getElementById("detBody");
 const detSentTime = document.getElementById("detSentTime");
@@ -23,6 +26,7 @@ const detImg = document.getElementById("detImg");
 
 let allNotifications = [];
 let query = "";
+let activeNotificationBeingViewed = null;
 
 function escapeHtml(str) {
   if (!str) return "";
@@ -32,10 +36,25 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;");
 }
 
+function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+  const toast = document.createElement("div");
+  const colors = {
+    success: "background-color:#DDD6C7; border:1px solid #047857; color:#047857;",
+    error: "background-color:#DDD6C7; border:1px solid #BE123C; color:#BE123C;",
+    info: "background-color:#DDD6C7; border:1px solid #BAAF98; color:#0E7490;"
+  };
+  toast.className = "flex items-center gap-2 px-3.5 py-2.5 rounded-xl shadow-md";
+  toast.style.cssText = colors[type] || colors.info;
+  toast.innerHTML = `<span class="material-symbols-outlined text-18">info</span><span class="text-xs font-semibold">${escapeHtml(message)}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
 function formatDate(timestampSec) {
   if (!timestampSec) return "Recently";
   const num = Number(timestampSec);
-  // Timestamp seconds me hai ya milliseconds me
   const d = new Date(num > 10000000000 ? num : num * 1000);
   if (isNaN(d.getTime())) return "Recently";
   return d.toLocaleString("en-IN", {
@@ -133,19 +152,36 @@ function render() {
           <span class="text-[10px] font-mono font-semibold" style="color:var(--accent-amber);">${clicks} clicks</span>
         </div>
       </div>
-      <div class="flex items-center justify-between pt-1.5 border-t text-[10px] font-semibold" style="border-color:var(--border-subtle); color:var(--accent-cyan);">
-        <span>Tap to view detailed analytics</span>
-        <span class="material-symbols-outlined text-14">arrow_forward</span>
+      <div class="flex items-center justify-between pt-1.5 border-t text-[10px] font-semibold" style="border-color:var(--border-subtle);">
+        <span class="flex items-center gap-0.5" style="color:var(--accent-cyan);">
+          <span>Tap to view detailed analytics</span>
+          <span class="material-symbols-outlined text-14">arrow_forward</span>
+        </span>
+        <button type="button" class="quickDeleteBtn text-rose-500 font-bold p-1 hover:underline flex items-center gap-0.5" data-id="${item.id}">
+          <span class="material-symbols-outlined text-14">delete</span>
+          <span>Delete</span>
+        </button>
       </div>
     `;
 
-    card.onclick = () => openModal(item);
+    card.onclick = (e) => {
+      // Agar direct delete button tap hua ho toh modal open na karein
+      if (e.target.closest(".quickDeleteBtn")) {
+        e.stopPropagation();
+        triggerDeleteNotification(item);
+        return;
+      }
+      openModal(item);
+    };
+
     listFeed.appendChild(card);
   });
 }
 
 function openModal(item) {
   if (!modal) return;
+  activeNotificationBeingViewed = item;
+
   const title = extractTitle(item);
   const body = extractBody(item);
 
@@ -175,9 +211,66 @@ function openModal(item) {
   modal.classList.remove("hidden");
 }
 
-if (closeModalBtn && modal) {
-  closeModalBtn.onclick = () => modal.classList.add("hidden");
+function closeModal() {
+  if (modal) modal.classList.add("hidden");
+  activeNotificationBeingViewed = null;
 }
+
+// Complete Delete Execution with OneSignal Error Handling
+async function triggerDeleteNotification(item) {
+  if (!item || !item.id) return;
+
+  const title = extractTitle(item);
+  const confirmMsg = `Are you sure you want to delete this notification record from OneSignal?\n\nTitle: "${title}"\nID: ${item.id}`;
+  if (!confirm(confirmMsg)) return;
+
+  if (cancelMsgBtn) {
+    cancelMsgBtn.disabled = true;
+    cancelMsgBtn.innerHTML = `<span class="material-symbols-outlined text-16 animate-spin">refresh</span> Deleting...`;
+  }
+
+  try {
+    const res = await cancelOneSignalNotification(item.id);
+    if (res.success) {
+      showToast("Notification deleted / canceled successfully!", "success");
+      allNotifications = allNotifications.filter(x => x.id !== item.id);
+      if (totalBadge) totalBadge.textContent = `${allNotifications.length} Total`;
+      render();
+      closeModal();
+    } else {
+      // 400 Handshake: Agar OneSignal bataye ki already delivered hai
+      const errMsg = res.error || (res.data?.errors && res.data.errors[0]) || "Delete failed";
+      if (errMsg.toLowerCase().includes("already being sent") || res.statusCode === 400) {
+        // UI list se remove kar dein taaki admin view clean ho jaye
+        allNotifications = allNotifications.filter(x => x.id !== item.id);
+        if (totalBadge) totalBadge.textContent = `${allNotifications.length} Total`;
+        render();
+        closeModal();
+        showToast("Delivered notification removed from active history view.", "info");
+      } else {
+        showToast(`OneSignal API: ${errMsg}`, "error");
+      }
+    }
+  } catch (e) {
+    showToast("Delete Error: " + e.message, "error");
+  } finally {
+    if (cancelMsgBtn) {
+      cancelMsgBtn.disabled = false;
+      cancelMsgBtn.innerHTML = `<span class="material-symbols-outlined text-16">delete_forever</span><span>Delete / Cancel Message</span>`;
+    }
+  }
+}
+
+if (cancelMsgBtn) {
+  cancelMsgBtn.addEventListener("click", () => {
+    if (activeNotificationBeingViewed) {
+      triggerDeleteNotification(activeNotificationBeingViewed);
+    }
+  });
+}
+
+if (closeModalBtn) closeModalBtn.onclick = closeModal;
+if (bottomCloseModalBtn) bottomCloseModalBtn.onclick = closeModal;
 
 if (searchInput) {
   searchInput.oninput = (e) => {
