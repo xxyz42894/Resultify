@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- Sabse pehle security script load honi chahiye -->
   <script src="./js/security-guard.js"></script>  
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Resultify - Advanced Broadcast</title>
@@ -31,7 +30,7 @@
   </header>
 
   <main class="max-w-md mx-auto p-4 space-y-4">
-    <!-- Template Selection Bar -->
+    <!-- Fast Preset Selector -->
     <div class="flex items-center justify-between p-3 rounded-2xl surface-card border" style="border-color: var(--border-subtle);">
       <div>
         <p class="text-xs font-bold" style="color: var(--text-primary);">Fast Push Presets</p>
@@ -51,24 +50,68 @@
     <!-- Broadcast Form -->
     <form id="broadcastForm" class="surface-card p-4 space-y-3.5">
       
-      <!-- Audience Target Selection -->
+      <!-- Target Audience Mode -->
       <div class="space-y-1.5">
-        <label class="block text-[11px] font-bold" style="color: var(--text-muted);">TARGET AUDIENCE:</label>
-        <select id="targetAudience" class="w-full px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer">
-          <option value="all">Send to All Subscribed Devices</option>
-          <option value="testing">Specific Testing Device Only</option>
+        <div class="flex items-center justify-between">
+          <label class="block text-[11px] font-bold" style="color: var(--text-muted);">TARGET AUDIENCE:</label>
+          <span id="targetAudienceCountBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">Calculating...</span>
+        </div>
+        <select id="targetAudience" class="w-full px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+          <option value="all" selected>All Subscribed Devices (Complete Base)</option>
+          <option value="custom_active_range">Custom Active Range (Aapke chune hue din ke bhitar)</option>
+          <option value="custom_inactive_threshold">Custom Inactive Users (Itne din se jyada inactive)</option>
+          <option value="testing_all">All OneSignal Test Users</option>
+          <option value="testing_specific">Specific Test User Selection</option>
         </select>
+        <p id="audienceExplanationText" class="text-[10px] font-medium" style="color: var(--text-muted);"></p>
       </div>
 
-      <!-- Specific Testing Device Selector -->
-      <div id="testingDeviceContainer" class="hidden space-y-1.5 p-3 rounded-xl" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+      <!-- CUSTOM DATE/DAY RANGE PICKER CONTAINER -->
+      <div id="customRangePickerBox" class="hidden p-3 rounded-2xl border space-y-2.5" style="background-color: var(--bg-input); border-color: var(--accent-cyan);">
+        <div class="flex items-center justify-between border-b pb-1.5" style="border-color: var(--border-subtle);">
+          <span class="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1" style="color: var(--accent-cyan);">
+            <span class="material-symbols-outlined text-16">date_range</span>
+            <span id="rangePickerTitle">Active Activity Days Range</span>
+          </span>
+          <span id="rangeResultPreview" class="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded" style="background: rgba(14,116,144,0.15); color: var(--accent-cyan);">0 users</span>
+        </div>
+
+        <!-- Range Inputs: From Day X to Day Y -->
+        <div id="dualRangeInputs" class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-semibold mb-1" style="color: var(--text-muted);">Min Days Ago (From):</label>
+            <input type="number" id="inputMinDays" min="0" max="365" value="0" class="w-full px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold surface-card border" style="border-color: var(--border-subtle);">
+            <span class="text-[9px]" style="color: var(--text-muted);">0 = Aaj (Right now)</span>
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold mb-1" style="color: var(--text-muted);">Max Days Ago (To):</label>
+            <input type="number" id="inputMaxDays" min="1" max="365" value="7" class="w-full px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold surface-card border" style="border-color: var(--border-subtle);">
+            <span class="text-[9px]" style="color: var(--text-muted);">E.g. 7 = Pichhle 7 din</span>
+          </div>
+        </div>
+
+        <!-- Inactive Threshold Input -->
+        <div id="singleThresholdInput" class="hidden space-y-1">
+          <label class="block text-[10px] font-semibold" style="color: var(--text-muted);">Inactive Duration (Din):</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="inputInactiveDays" min="1" max="365" value="14" class="w-full px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold surface-card border" style="border-color: var(--border-subtle);">
+            <span class="text-xs font-bold whitespace-nowrap" style="color: var(--accent-amber);">Din Se Inactive</span>
+          </div>
+          <span class="text-[9px] block" style="color: var(--text-muted);">Jo user itne din se app nahi khole unhi ko message jayega.</span>
+        </div>
+      </div>
+
+      <!-- Testing Users Checkbox List -->
+      <div id="testingDeviceContainer" class="hidden space-y-2 p-3 rounded-xl" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
         <div class="flex items-center justify-between text-[11px] font-bold" style="color: var(--accent-amber);">
-          <span>Select Target Device:</span>
+          <span>OneSignal Test Subscriptions:</span>
           <button type="button" id="refreshTestingDevs" class="text-[10px] underline flex items-center gap-0.5">
-            <span class="material-symbols-outlined text-12">refresh</span> Refresh
+            <span class="material-symbols-outlined text-12">refresh</span> Refresh Testers
           </button>
         </div>
-        <select id="testingDeviceSelect" class="w-full px-3 py-2 rounded-xl text-xs font-mono"></select>
+        <div id="testersCheckboxList" class="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar pr-1">
+          <p class="text-[11px]" style="color: var(--text-muted);">Loading OneSignal test registry...</p>
+        </div>
         <p id="selectedSubIdText" class="text-[10px] font-mono break-all pt-1 font-bold" style="color: var(--accent-mint);"></p>
       </div>
 
@@ -83,7 +126,7 @@
         <textarea id="bcBody" required rows="3" placeholder="Enter message text..." class="w-full px-3.5 py-2.5 rounded-xl text-xs resize-none" style="color: var(--text-primary);"></textarea>
       </div>
 
-      <!-- Notification Channel Selector (NEW) -->
+      <!-- Notification Channel Selector -->
       <div class="space-y-1.5">
         <label class="block text-[11px] font-bold" style="color: var(--text-muted);">NOTIFICATION CHANNEL:</label>
         <select id="bcChannelSelect" class="w-full px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
@@ -93,7 +136,7 @@
         <p class="text-[9px]" style="color: var(--text-muted);">Android OS me notification is channel ID par deliver hogi.</p>
       </div>
 
-      <!-- Delivery Priority (Urgent Pop vs High vs Normal) -->
+      <!-- Delivery Priority -->
       <div class="space-y-1.5">
         <label class="block text-[11px] font-bold" style="color: var(--text-muted);">DELIVERY PRIORITY & DISPLAY BEHAVIOR:</label>
         <div class="grid grid-cols-3 gap-2">
@@ -129,17 +172,14 @@
       <!-- Media & Link Config -->
       <div class="p-3 rounded-xl space-y-2.5" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
         <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-cyan);">Media & Link Config</p>
-        
         <div>
           <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Click Action URL (Empty = Default App Open)</label>
           <input type="url" id="bcUrl" placeholder="https://... (Leave blank to just open app)" class="w-full px-3 py-2 rounded-xl text-xs">
         </div>
-
         <div>
           <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Big Picture Image URL (Optional)</label>
           <input type="url" id="bcBigPicture" placeholder="https://example.com/banner.jpg" class="w-full px-3 py-2 rounded-xl text-xs">
         </div>
-
         <div>
           <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Large Icon URL (Optional)</label>
           <input type="url" id="bcLargeIcon" placeholder="https://example.com/icon.png" class="w-full px-3 py-2 rounded-xl text-xs">
@@ -149,12 +189,10 @@
       <!-- Action Buttons Config -->
       <div class="p-3 rounded-xl space-y-2.5" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
         <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-amber);">Notification Action Buttons (Max 2)</p>
-        
         <div class="grid grid-cols-2 gap-2">
           <input type="text" id="bcBtn1Text" placeholder="Btn 1 Label (e.g. Check Now)" class="px-2.5 py-1.5 rounded-xl text-xs">
           <input type="url" id="bcBtn1Url" placeholder="Btn 1 URL" class="px-2.5 py-1.5 rounded-xl text-xs">
         </div>
-
         <div class="grid grid-cols-2 gap-2">
           <input type="text" id="bcBtn2Text" placeholder="Btn 2 Label (e.g. Details)" class="px-2.5 py-1.5 rounded-xl text-xs">
           <input type="url" id="bcBtn2Url" placeholder="Btn 2 URL" class="px-2.5 py-1.5 rounded-xl text-xs">
@@ -241,7 +279,6 @@
         </div>
       </div>
 
-      <!-- Outgoing payload -->
       <div class="space-y-1">
         <div class="flex items-center justify-between text-[10px] font-bold" style="color: var(--accent-amber);">
           <span>1. OUTGOING PAYLOAD SENT TO ONESIGNAL:</span>
@@ -250,7 +287,6 @@
         <pre id="outgoingPayloadJson" class="p-3 rounded-xl font-mono text-[10px] overflow-x-auto max-h-40 border custom-scrollbar select-all" style="background-color: var(--bg-input); border-color: var(--border-subtle); color: var(--text-primary);"></pre>
       </div>
 
-      <!-- Raw Incoming response -->
       <div class="space-y-1">
         <span class="text-[10px] font-bold" style="color: var(--accent-cyan);">2. RAW INCOMING ONESIGNAL RESPONSE:</span>
         <pre id="rawJsonResponse" class="p-3 rounded-xl font-mono text-[10px] overflow-x-auto max-h-40 border custom-scrollbar select-all" style="background-color: var(--bg-input); border-color: var(--border-subtle); color: var(--text-primary);"></pre>
@@ -271,7 +307,6 @@
         </button>
       </div>
 
-      <!-- Scrollable Templates List with Live Mockups -->
       <div id="modalTemplatesList" class="flex-1 overflow-y-auto space-y-3 pr-1">
         <p class="text-xs text-center py-4" style="color: var(--text-muted);">Loading presets...</p>
       </div>
