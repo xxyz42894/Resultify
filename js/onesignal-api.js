@@ -70,11 +70,12 @@ export async function getOneSignalNotifications(offset = 0) {
   }
 }
 
-// Cancel / Delete Notification from OneSignal (NEW)
-export async function cancelOneSignalNotification(notificationId) {
+// Exactly calls Notification Delete by UUID (without asking for subscription_id)
+export async function cancelOneSignalNotification(notificationUuid) {
   try {
-    const res = await callOneSignalApi(`action=delete_notification&notification_id=${notificationId}`, {
-      method: "DELETE"
+    const res = await callOneSignalApi(`action=delete_notification&notification_id=${notificationUuid}`, {
+      method: "POST",
+      body: JSON.stringify({ notificationId: notificationUuid })
     });
     return {
       success: Boolean(res.success),
@@ -108,7 +109,7 @@ export async function getOneSignalSubscribers() {
   }
 }
 
-// Exactly passes subscriptionId without trim or encode manipulation
+// Exactly passes subscriptionId for device subscriber deletion
 export async function deleteOneSignalSubscriber(subscriptionId) {
   try {
     const res = await callOneSignalApi(`action=delete_subscription&subscription_id=${subscriptionId}`, {

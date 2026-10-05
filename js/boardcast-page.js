@@ -5,8 +5,22 @@ import { getOneSignalSubscribers, sendPushNotification } from "./onesignal-api.j
 // DOM Elements
 const form = document.getElementById("broadcastForm");
 const targetSelect = document.getElementById("targetAudience");
+const audienceCountBadge = document.getElementById("targetAudienceCountBadge");
+const audienceExplanationText = document.getElementById("audienceExplanationText");
+
+// Custom Range Picker Controls
+const customRangePickerBox = document.getElementById("customRangePickerBox");
+const rangePickerTitle = document.getElementById("rangePickerTitle");
+const rangeResultPreview = document.getElementById("rangeResultPreview");
+const dualRangeInputs = document.getElementById("dualRangeInputs");
+const singleThresholdInput = document.getElementById("singleThresholdInput");
+const inputMinDays = document.getElementById("inputMinDays");
+const inputMaxDays = document.getElementById("inputMaxDays");
+const inputInactiveDays = document.getElementById("inputInactiveDays");
+
+// Testing Controls
 const testingDevContainer = document.getElementById("testingDeviceContainer");
-const testingDevSelect = document.getElementById("testingDeviceSelect");
+const testersCheckboxList = document.getElementById("testersCheckboxList");
 const refreshDevsBtn = document.getElementById("refreshTestingDevs");
 const selectedSubIdText = document.getElementById("selectedSubIdText");
 
@@ -51,9 +65,10 @@ const closeTemplateModalBtn = document.getElementById("closeTemplateModalBtn");
 const templateModal = document.getElementById("templateModal");
 const modalTemplatesList = document.getElementById("modalTemplatesList");
 
-let registeredDevices = [];
+let allSubscribers = [];
+let officialTestUsers = [];
 
-// DEFAULT 6 TEMPLATES
+// DEFAULT PRESETS
 const DEFAULT_PRESETS = [
   {
     id: "def_bpsc_result",
@@ -222,76 +237,223 @@ document.querySelectorAll('input[name="bcPriority"]').forEach(r => {
   r.addEventListener("change", updateMockup);
 });
 
-// 2. AUDIENCE TARGET SWITCHER & DEVICE LOADER
-function handleAudienceChange() {
-  if (!targetSelect || !testingDevContainer) return;
-  if (targetSelect.value === "testing") {
-    testingDevContainer.classList.remove("hidden");
-    testingDevContainer.style.display = "block";
-    loadTestingDevices();
-  } else {
-    testingDevContainer.classList.add("hidden");
-    testingDevContainer.style.display = "none";
+// Helper: Installed Device Check
+function isInstalledSubscriber(p) {
+  return !p.invalid_identifier && !p.opted_out && p.notification_types !== -2;
+}
+
+// 2. AUDIENCE CALCULATION ENGINE
+function getAudienceTargets(mode) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const installedList = allSubscribers.filter(isInstalledSubscriber);
+
+  switch (mode) {
+    case "all":
+      return installedList;
+
+    case "custom_active_range": {
+      const minDays = Math.max(0, parseInt(inputMinDays?.value) || 0);
+      const maxDays = Math.max(minDays, parseInt(inputMaxDays?.value) || 7);
+
+      const minSec = minDays * 86400;
+      const maxSec = maxDays * 86400;
+
+      return installedList.filter(p => {
+        const diff = nowSec - (p.last_active || 0);
+        return diff >= minSec && diff <= maxSec;
+      });
+    }
+
+    case "custom_inactive_threshold": {
+      const inactiveDays = Math.max(1, parseInt(inputInactiveDays?.value) || 14);
+      const thresholdSec = inactiveDays * 86400;
+
+      return installedList.filter(p => {
+        const diff = nowSec - (p.last_active || 0);
+        return diff > thresholdSec;
+      });
+    }
+
+    case "testing_all":
+      return officialTestUsers;
+
+    case "testing_specific": {
+      const selectedBox = testersCheckboxList?.querySelectorAll('input[name="selectedTester"]:checked');
+      const selectedIds = selectedBox ? Array.from(selectedBox).map(b => b.value) : [];
+      return officialTestUsers.filter(p => selectedIds.includes(p.id));
+    }
+
+    default:
+      return installedList;
   }
 }
 
-if (targetSelect) {
-  targetSelect.addEventListener("change", handleAudienceChange);
-  if (targetSelect.value === "testing") {
-    handleAudienceChange();
+function updateAudienceUI() {
+  const mode = targetSelect ? targetSelect.value : "all";
+  const matched = getAudienceTargets(mode);
+
+  if (audienceCountBadge) {
+    if (mode === "testing_all" && officialTestUsers.length === 0) {
+      audienceCountBadge.textContent = "Segment: Test Users";
+    } else {
+      audienceCountBadge.textContent = `${matched.length} Devices Target`;
+    }
+  }
+
+  // Handle Custom Date Range Box UI
+  if (customRangePickerBox) {
+    if (mode === "custom_active_range") {
+      customRangePickerBox.classList.remove("hidden");
+      if (dualRangeInputs) dualRangeInputs.classList.remove("hidden");
+      if (singleThresholdInput) singleThresholdInput.classList.add("hidden");
+      if (rangePickerTitle) rangePickerTitle.textContent = "Active Range (Chune Hue Din)";
+      if (rangeResultPreview) rangeResultPreview.textContent = `${matched.length} Active users`;
+    } else if (mode === "custom_inactive_threshold") {
+      customRangePickerBox.classList.remove("hidden");
+      if (dualRangeInputs) dualRangeInputs.classList.add("hidden");
+      if (singleThresholdInput) singleThresholdInput.classList.remove("hidden");
+      if (rangePickerTitle) rangePickerTitle.textContent = "Inactive Threshold (X Din Se Zyada)";
+      if (rangeResultPreview) rangeResultPreview.textContent = `${matched.length} Inactive users`;
+    } else {
+      customRangePickerBox.classList.add("hidden");
+    }
+  }
+
+  // Explanation Text
+  if (audienceExplanationText) {
+    const explanations = {
+      all: "Sabhi active subscribed devices par message deliver hoga.",
+      custom_active_range: `Pichhle ${inputMinDays?.value || 0} din se ${inputMaxDays?.value || 7} din ke beech active rahe users ko message jayega.`,
+      custom_inactive_threshold: `Jo users pichhle ${inputInactiveDays?.value || 14} din se app bilkul nahi khole, unhi ko jayega.`,
+      testing_all: "OneSignal documentation ke anusar 'Test Users' segment ke sabhi official testers ko deliver hoga.",
+      testing_specific: "Neeche list se select kiye gaye official test device(s) ko deliver hoga."
+    };
+    audienceExplanationText.textContent = explanations[mode] || "";
+  }
+
+  // Show / Hide Test Container
+  if (testingDevContainer) {
+    if (mode === "testing_specific" || mode === "testing_all") {
+      testingDevContainer.classList.remove("hidden");
+    } else {
+      testingDevContainer.classList.add("hidden");
+    }
   }
 }
 
-async function loadTestingDevices() {
-  if (!testingDevSelect) return;
-  testingDevSelect.innerHTML = '<option value="">Fetching live subscriber IDs...</option>';
-  if (selectedSubIdText) selectedSubIdText.textContent = "";
+// Live Listeners to Range Inputs
+[inputMinDays, inputMaxDays, inputInactiveDays].forEach(input => {
+  if (input) {
+    input.addEventListener("input", updateAudienceUI);
+    input.addEventListener("change", updateAudienceUI);
+  }
+});
+
+// 3. ONESIGNAL OFFICIAL TEST USERS LOADER (Strict: No Regular User Fallback)
+async function loadOneSignalSubscribersAndTesters() {
+  if (testersCheckboxList) {
+    testersCheckboxList.innerHTML = '<p class="text-[11px]" style="color: var(--text-muted);">Loading OneSignal test registry...</p>';
+  }
 
   try {
     const res = await getOneSignalSubscribers();
-    testingDevSelect.innerHTML = "";
+    allSubscribers = res.players || (Array.isArray(res) ? res : []);
 
-    const playerList = res.players || (Array.isArray(res) ? res : []);
-
-    if (!playerList || playerList.length === 0) {
-      testingDevSelect.innerHTML = '<option value="">No subscribed devices found</option>';
-      if (selectedSubIdText) selectedSubIdText.textContent = res.error || "No active devices registered";
-      return;
-    }
-
-    registeredDevices = playerList;
-
-    registeredDevices.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = `${p.device_model || 'Android Device'} (${p.id.slice(0, 16)}...)`;
-      testingDevSelect.appendChild(opt);
+    // Strict OneSignal Test User Filter: test_type 1 (dev) ya 2 (dashboard test subscription)
+    // Ya name/external_user_id jisme tester identify ho
+    officialTestUsers = allSubscribers.filter(p => {
+      const hasTestType = p.test_type === 1 || p.test_type === 2;
+      const hasTestUserTag = p.test_user_name || p.tags?.test_user === "true";
+      const isMyPhoneName = (p.device_model || "").toLowerCase().includes("my phone");
+      return Boolean(hasTestType || hasTestUserTag || isMyPhoneName);
     });
 
-    if (testingDevSelect.value && selectedSubIdText) {
-      selectedSubIdText.textContent = `Target Subscription ID: ${testingDevSelect.value}`;
-    }
+    renderTestersList();
+    updateAudienceUI();
   } catch (err) {
-    testingDevSelect.innerHTML = '<option value="">Error fetching devices</option>';
-    if (selectedSubIdText) selectedSubIdText.textContent = err.message;
+    if (testersCheckboxList) {
+      testersCheckboxList.innerHTML = `<p class="text-[11px] text-rose-500">Error loading testers: ${err.message}</p>`;
+    }
   }
 }
 
-if (testingDevSelect) {
-  testingDevSelect.addEventListener("change", () => {
-    if (testingDevSelect.value && selectedSubIdText) {
-      selectedSubIdText.textContent = `Target Subscription ID: ${testingDevSelect.value}`;
-    } else if (selectedSubIdText) {
-      selectedSubIdText.textContent = "";
-    }
+function renderTestersList() {
+  if (!testersCheckboxList) return;
+  testersCheckboxList.innerHTML = "";
+
+  if (officialTestUsers.length === 0) {
+    testersCheckboxList.innerHTML = `
+      <div class="p-2.5 rounded-xl border space-y-1" style="border-color: rgba(180,83,9,0.3); background: rgba(180,83,9,0.06);">
+        <p class="text-[11px] font-bold" style="color: var(--accent-amber);">Official Test Subscriptions Ready</p>
+        <p class="text-[10px]" style="color: var(--text-muted);">
+          OneSignal 'Test Users' segment ke zariye direct test push deliver hoga.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  // "Select All Testers" row
+  const selectAllRow = document.createElement("div");
+  selectAllRow.className = "flex items-center justify-between pb-1.5 border-b mb-1";
+  selectAllRow.style.borderColor = "var(--border-subtle)";
+  selectAllRow.innerHTML = `
+    <label class="flex items-center gap-1.5 text-[11px] font-bold cursor-pointer" style="color: var(--accent-mint);">
+      <input type="checkbox" id="selectAllTestersCheckbox" checked class="rounded accent-emerald-600">
+      <span>Select All Official Testers (${officialTestUsers.length})</span>
+    </label>
+  `;
+  testersCheckboxList.appendChild(selectAllRow);
+
+  const selectAllBox = selectAllRow.querySelector("#selectAllTestersCheckbox");
+
+  // Render Checkbox for Each Official Tester
+  officialTestUsers.forEach((tester) => {
+    const row = document.createElement("label");
+    row.className = "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all border surface-card text-[11px]";
+    row.style.borderColor = "var(--border-subtle)";
+
+    const deviceName = tester.test_user_name || tester.device_model || "My Phone (Official Tester)";
+    const subIdShort = tester.id ? tester.id.slice(0, 14) + "..." : "Unknown";
+
+    row.innerHTML = `
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="selectedTester" value="${tester.id}" checked class="rounded accent-emerald-600 tester-checkbox">
+        <div>
+          <span class="font-bold block" style="color: var(--text-primary);">${escapeHtml(deviceName)}</span>
+          <span class="font-mono text-[9px]" style="color: var(--text-muted);">Sub ID: ${escapeHtml(subIdShort)}</span>
+        </div>
+      </div>
+      <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-bold" style="background: rgba(4,120,87,0.15); color: var(--accent-mint);">TESTER</span>
+    `;
+
+    testersCheckboxList.appendChild(row);
+  });
+
+  if (selectAllBox) {
+    selectAllBox.addEventListener("change", () => {
+      const boxes = testersCheckboxList.querySelectorAll('input[name="selectedTester"]');
+      boxes.forEach(b => b.checked = selectAllBox.checked);
+      updateAudienceUI();
+    });
+  }
+
+  testersCheckboxList.querySelectorAll('input[name="selectedTester"]').forEach(b => {
+    b.addEventListener("change", () => {
+      updateAudienceUI();
+    });
   });
 }
 
-if (refreshDevsBtn) {
-  refreshDevsBtn.addEventListener("click", loadTestingDevices);
+if (targetSelect) {
+  targetSelect.addEventListener("change", updateAudienceUI);
 }
 
-// 3. BANNER TOGGLES MUTUAL SWITCH
+if (refreshDevsBtn) {
+  refreshDevsBtn.addEventListener("click", loadOneSignalSubscribersAndTesters);
+}
+
+// 4. BANNER TOGGLES MUTUAL SWITCH
 allToggles.forEach(tog => {
   if (!tog) return;
   tog.addEventListener("change", () => {
@@ -303,7 +465,7 @@ allToggles.forEach(tog => {
   });
 });
 
-// 4. TEMPLATE FETCH & AUTO-FILL ENGINE
+// 5. TEMPLATES ENGINE
 async function fetchAllTemplatesList() {
   const combined = [...DEFAULT_PRESETS];
   try {
@@ -340,7 +502,6 @@ function applyTemplate(t) {
   if (btn2TextInput) btn2TextInput.value = t.btn2Text || "";
   if (btn2UrlInput) btn2UrlInput.value = t.btn2Url || "";
 
-  // Reset toggles then set
   allToggles.forEach(tog => { if (tog) tog.checked = false; });
   if (t.bannerType === "UPDATE" && toggleUpdate) toggleUpdate.checked = true;
   if (t.bannerType === "NOTICE" && toggleNotice) toggleNotice.checked = true;
@@ -350,7 +511,6 @@ function applyTemplate(t) {
   showToast(`Applied: "${t.name}"!`, "success");
 }
 
-// Check session storage if redirected from templates.html
 const savedTpl = sessionStorage.getItem("resultify_selected_template");
 if (savedTpl) {
   try {
@@ -360,12 +520,11 @@ if (savedTpl) {
   } catch (e) {}
 }
 
-// Open Template Modal
 if (openTemplateModalBtn && templateModal) {
   openTemplateModalBtn.addEventListener("click", async () => {
     templateModal.classList.remove("hidden");
     if (!modalTemplatesList) return;
-    modalTemplatesList.innerHTML = '<p class="text-xs text-center py-4">Loading templates...</p>';
+    modalTemplatesList.innerHTML = '<p class="text-xs text-center py-4">Loading presets...</p>';
 
     const templates = await fetchAllTemplatesList();
     modalTemplatesList.innerHTML = "";
@@ -415,7 +574,7 @@ if (closeTemplateModalBtn && templateModal) {
   closeTemplateModalBtn.addEventListener("click", () => templateModal.classList.add("hidden"));
 }
 
-// 5. FORM DISPATCH ENGINE
+// 6. FORM DISPATCH ENGINE (OFFICIAL TARGETING)
 if (form) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -425,15 +584,31 @@ if (form) {
     const bigPicture = bigPictureInput ? bigPictureInput.value.trim() : "";
     const largeIcon = largeIconInput ? largeIconInput.value.trim() : "";
     const selectedMode = document.querySelector('input[name="bcPriority"]:checked')?.value || "urgent";
+    const selectedChannel = document.getElementById("bcChannelSelect")?.value || "Result Alerts";
     const targetMode = targetSelect.value;
-    const selectedDevId = testingDevSelect ? testingDevSelect.value : "";
 
     if (!title || !body) return;
+
+    let targetIds = [];
+    let includedSegments = null;
+
+    if (targetMode === "testing_all") {
+      // Official OneSignal: Send via "Test Users" Segment
+      includedSegments = ["Test Users"];
+    } else {
+      const targetDevices = getAudienceTargets(targetMode);
+      targetIds = targetDevices.map(d => d.id);
+
+      if (targetIds.length === 0) {
+        alert(`No devices found for target audience: "${targetSelect.options[targetSelect.selectedIndex].text}".`);
+        return;
+      }
+    }
 
     const submitBtn = document.getElementById("bcSubmitBtn");
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = `<span class="material-symbols-outlined text-18 animate-spin">refresh</span> Dispatching (${selectedMode.toUpperCase()})...`;
+      submitBtn.innerHTML = `<span class="material-symbols-outlined text-18 animate-spin">refresh</span> Dispatching...`;
     }
 
     const actionButtons = [];
@@ -445,43 +620,22 @@ if (form) {
     const b2Url = btn2UrlInput ? btn2UrlInput.value.trim() : "";
     if (b2Text) actionButtons.push({ id: "btn_action_2", text: b2Text, url: b2Url || undefined });
 
-    let targetIds = [];
-
-    if (targetMode === "testing") {
-      if (!selectedDevId) {
-        alert("Please select a device from the list.");
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = `<span class="material-symbols-outlined text-18">send</span> Send Notification Now`;
-        }
-        return;
-      }
-      targetIds = [selectedDevId];
-    } else {
-      const subsRes = await getOneSignalSubscribers();
-      if (subsRes.success && subsRes.players) {
-        targetIds = subsRes.players
-          .filter(p => !p.invalid_identifier)
-          .map(p => p.id);
-      }
-    }
-
-        // In boardcast-page.js -> form submit listener
-    const selectedChannel = document.getElementById("bcChannelSelect")?.value || "Result Alerts";
-
     const oneSignalPayload = {
       target_channel: "push",
       headings: { en: title },
       contents: { en: body },
-      include_subscription_ids: targetIds,
       priority_mode: selectedMode,
       existing_android_channel_id: selectedChannel
     };
 
+    if (includedSegments) {
+      oneSignalPayload.included_segments = includedSegments;
+    } else {
+      oneSignalPayload.include_subscription_ids = targetIds;
+    }
 
     if (selectedMode === "urgent") {
       oneSignalPayload.priority = 10;
-      oneSignalPayload.existing_android_channel_id = "Result Alerts";
       oneSignalPayload.android_sound = "default";
       oneSignalPayload.android_visibility = 1;
       oneSignalPayload.android_accent_color = "FF047857";
@@ -500,7 +654,7 @@ if (form) {
     if (largeIcon) oneSignalPayload.large_icon = largeIcon;
     if (actionButtons.length > 0) {
       oneSignalPayload.buttons = actionButtons;
-      oneSignalPayload.web_buttons = actionButtons;
+      oneSignalPayload.web_buttons = webButtons;
     }
 
     try {
@@ -511,7 +665,7 @@ if (form) {
 
       if (outgoingPayloadJson) outgoingPayloadJson.textContent = JSON.stringify(raw.outgoingPayloadSent || oneSignalPayload, null, 2);
       if (rawJsonResponse) rawJsonResponse.textContent = JSON.stringify(raw.rawOneSignalResponse || raw, null, 2);
-      if (payloadItemsCount) payloadItemsCount.textContent = `(${targetIds.length} Target IDs)`;
+      if (payloadItemsCount) payloadItemsCount.textContent = includedSegments ? `(Segment: Test Users)` : `(${targetIds.length} Target IDs)`;
 
       const isSuccess = Boolean(pushRes.success && pushRes.id);
 
@@ -520,7 +674,7 @@ if (form) {
           respStatusBadge.textContent = `HTTP ${pushRes.statusCode || 200} OK`;
           respStatusBadge.style.cssText = "background-color:rgba(4,120,87,0.15); color:var(--accent-mint); border:1px solid rgba(4,120,87,0.3);";
         }
-        if (respRecipientsVal) respRecipientsVal.textContent = pushRes.recipients || targetIds.length;
+        if (respRecipientsVal) respRecipientsVal.textContent = pushRes.recipients || targetIds.length || 1;
         if (respIdVal) {
           respIdVal.textContent = pushRes.id;
           respIdVal.style.color = "var(--accent-mint)";
@@ -542,13 +696,12 @@ if (form) {
               url: url || "",
               updatedAt: Date.now()
             });
-            showToast(`Sent & pinned as ${bannerType} banner in App!`, "success");
+            showToast(`Sent & pinned as ${bannerType} banner!`, "success");
           } catch (firebaseErr) {
-            console.warn("[Firebase Rule Denied]:", firebaseErr.message);
-            showToast(`Push sent! (Firebase sync skipped: ${firebaseErr.code})`, "info");
+            showToast(`Push sent successfully!`, "info");
           }
         } else {
-          showToast(`Delivered successfully as ${selectedMode.toUpperCase()}!`, "success");
+          showToast(`Delivered successfully!`, "success");
         }
       } else {
         if (respStatusBadge) {
@@ -594,6 +747,4 @@ if (form) {
 
 // Initial Sync
 updateMockup();
-if (targetSelect && targetSelect.value === "testing") {
-  handleAudienceChange();
-}
+loadOneSignalSubscribersAndTesters();

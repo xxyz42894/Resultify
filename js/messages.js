@@ -165,7 +165,6 @@ function render() {
     `;
 
     card.onclick = (e) => {
-      // Agar direct delete button tap hua ho toh modal open na karein
       if (e.target.closest(".quickDeleteBtn")) {
         e.stopPropagation();
         triggerDeleteNotification(item);
@@ -216,12 +215,12 @@ function closeModal() {
   activeNotificationBeingViewed = null;
 }
 
-// Complete Delete Execution with OneSignal Error Handling
+// Real OneSignal DELETE Handler
 async function triggerDeleteNotification(item) {
   if (!item || !item.id) return;
 
   const title = extractTitle(item);
-  const confirmMsg = `Are you sure you want to delete this notification record from OneSignal?\n\nTitle: "${title}"\nID: ${item.id}`;
+  const confirmMsg = `Are you sure you want to permanently delete this message from OneSignal?\n\nTitle: "${title}"\nID: ${item.id}`;
   if (!confirm(confirmMsg)) return;
 
   if (cancelMsgBtn) {
@@ -231,25 +230,15 @@ async function triggerDeleteNotification(item) {
 
   try {
     const res = await cancelOneSignalNotification(item.id);
+
     if (res.success) {
-      showToast("Notification deleted / canceled successfully!", "success");
-      allNotifications = allNotifications.filter(x => x.id !== item.id);
-      if (totalBadge) totalBadge.textContent = `${allNotifications.length} Total`;
-      render();
+      showToast(`Message "${title}" has been deleted from OneSignal.`, "success");
+      // Direct OneSignal Database se wapas fetch karke verify aur refresh karein
+      await loadNotifications();
       closeModal();
     } else {
-      // 400 Handshake: Agar OneSignal bataye ki already delivered hai
-      const errMsg = res.error || (res.data?.errors && res.data.errors[0]) || "Delete failed";
-      if (errMsg.toLowerCase().includes("already being sent") || res.statusCode === 400) {
-        // UI list se remove kar dein taaki admin view clean ho jaye
-        allNotifications = allNotifications.filter(x => x.id !== item.id);
-        if (totalBadge) totalBadge.textContent = `${allNotifications.length} Total`;
-        render();
-        closeModal();
-        showToast("Delivered notification removed from active history view.", "info");
-      } else {
-        showToast(`OneSignal API: ${errMsg}`, "error");
-      }
+      const errMsg = res.error || (res.data?.errors && res.data.errors[0]) || "Delete request failed";
+      showToast(`OneSignal Error: ${errMsg}`, "error");
     }
   } catch (e) {
     showToast("Delete Error: " + e.message, "error");
