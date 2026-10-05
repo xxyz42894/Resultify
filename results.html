@@ -21,7 +21,6 @@
     </div>
     
     <div class="flex items-center gap-1.5">
-      <!-- Backup & Upload Trigger Button -->
       <button id="openSyncModalBtn" class="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border surface-card transition-all active:scale-95" style="border-color: var(--border-subtle); color: var(--accent-amber);" title="Backup & Upload JSON">
         <span class="material-symbols-outlined text-16">cloud_sync</span>
         <span>Sync JSON</span>
@@ -42,16 +41,14 @@
   <main class="max-w-md mx-auto p-4 space-y-3">
     <!-- Search Bar -->
     <div class="space-y-2">
-      <input type="text" id="searchInput" placeholder="Search title, board, exam..." class="w-full px-3.5 py-2.5 rounded-xl text-xs surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+      <input type="text" id="searchInput" placeholder="Search title, exam..." class="w-full px-3.5 py-2.5 rounded-xl text-xs surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
       
-      <!-- Category Filter Pills -->
+      <!-- 4 Categories Filter Pills -->
       <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-        <button data-cat="all" class="cat-pill active px-3 py-1 rounded-lg text-[11px] font-bold" style="border: 1px solid var(--accent-mint); background-color: rgba(4, 120, 87, 0.15); color: var(--accent-mint);">All Categories</button>
+        <button data-cat="all" class="cat-pill active px-3 py-1 rounded-lg text-[11px] font-bold" style="border: 1px solid var(--accent-mint); background-color: rgba(4, 120, 87, 0.15); color: var(--accent-mint);">All Category</button>
         <button data-cat="10th" class="cat-pill px-3 py-1 rounded-lg text-[11px] font-medium surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">10th</button>
         <button data-cat="12th" class="cat-pill px-3 py-1 rounded-lg text-[11px] font-medium surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">12th</button>
         <button data-cat="university" class="cat-pill px-3 py-1 rounded-lg text-[11px] font-medium surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">University</button>
-        <button data-cat="neet" class="cat-pill px-3 py-1 rounded-lg text-[11px] font-medium surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">NEET/JEE</button>
-        <button data-cat="govt" class="cat-pill px-3 py-1 rounded-lg text-[11px] font-medium surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">Govt</button>
         <button data-cat="other" class="cat-pill px-3 py-1 rounded-lg text-[11px] font-medium surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">Other</button>
       </div>
 
@@ -61,33 +58,37 @@
           All (<span id="countStatusAll">0</span>)
         </button>
         <button data-status="available" class="status-pill px-2.5 py-1 rounded-lg text-[10px] font-bold surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">
-          🟢 Available (<span id="countStatusAvailable">0</span>)
+          Available (<span id="countStatusAvailable">0</span>)
         </button>
         <button data-status="timed" class="status-pill px-2.5 py-1 rounded-lg text-[10px] font-bold surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">
-          ⏳ Timed (<span id="countStatusTimed">0</span>)
+          Timed (<span id="countStatusTimed">0</span>)
         </button>
         <button data-status="coming_soon" class="status-pill px-2.5 py-1 rounded-lg text-[10px] font-bold surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">
-          🟠 Coming Soon (<span id="countStatusComingSoon">0</span>)
+          Coming Soon (<span id="countStatusComingSoon">0</span>)
         </button>
         <button data-status="announced" class="status-pill px-2.5 py-1 rounded-lg text-[10px] font-bold surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">
-          🔵 Announced (<span id="countStatusAnnounced">0</span>)
+          Announced (<span id="countStatusAnnounced">0</span>)
         </button>
       </div>
     </div>
 
-    <!-- Bulk Action Bar -->
-    <div id="bulkActionBar" class="hidden p-3 rounded-2xl border surface-card flex items-center justify-between" style="border-color: var(--accent-cyan); background-color: rgba(14,116,144,0.08);">
-      <div class="flex items-center gap-2">
+    <!-- Bulk Action Bar with 3 Options: Make Available, Coming Soon, Delete -->
+    <div id="bulkActionBar" class="hidden p-2.5 rounded-2xl border surface-card flex items-center justify-between gap-1.5" style="border-color: var(--accent-cyan); background-color: rgba(14,116,144,0.08);">
+      <div class="flex items-center gap-1.5 shrink-0">
         <input type="checkbox" id="selectAllCheckbox" class="w-4 h-4 rounded accent-cyan-600 cursor-pointer">
-        <span class="text-xs font-bold" style="color: var(--text-primary);"><span id="selectedItemsCount">0</span> Selected</span>
+        <span class="text-xs font-bold whitespace-nowrap" style="color: var(--text-primary);"><span id="selectedItemsCount">0</span> Sel</span>
       </div>
-      <div class="flex items-center gap-1.5">
-        <button type="button" id="bulkMakeLiveBtn" class="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm" style="background-color: var(--accent-mint); color: #FFFFFF;">
-          <span class="material-symbols-outlined text-16">bolt</span>
-          <span>Make Available</span>
+      <div class="flex items-center gap-1.5 flex-wrap justify-end">
+        <button type="button" id="bulkMakeLiveBtn" class="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm" style="background-color: var(--accent-mint); color: #FFFFFF;" title="Set Status: Available">
+          <span class="material-symbols-outlined text-14">bolt</span>
+          <span>Available</span>
         </button>
-        <button type="button" id="bulkComingSoonBtn" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border surface-card" style="border-color: var(--border-subtle); color: var(--accent-amber);">
+        <button type="button" id="bulkComingSoonBtn" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border surface-card" style="border-color: var(--border-subtle); color: var(--accent-amber);" title="Set Status: Coming Soon">
           <span>Coming Soon</span>
+        </button>
+        <button type="button" id="bulkDeleteBtn" class="px-2.5 py-1.5 rounded-xl text-xs font-bold border surface-card flex items-center gap-0.5" style="border-color: rgba(190,18,60,0.3); color: var(--accent-rose); background-color: rgba(190,18,60,0.08);" title="Delete Selected Results">
+          <span class="material-symbols-outlined text-14">delete</span>
+          <span>Delete</span>
         </button>
       </div>
     </div>
@@ -96,9 +97,7 @@
     <div id="resultsFeed" class="space-y-2.5"></div>
   </main>
 
-  <!-- ============================================== -->
-  <!-- POPUP MODAL: UPLOAD JSON & BACKUP RESULTS      -->
-  <!-- ============================================== -->
+  <!-- Sync JSON Modal -->
   <div id="syncJsonModal" class="fixed inset-0 z-50 hidden backdrop-blur-sm flex flex-col justify-end bg-black/60">
     <div class="border-t rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl animate-sheet-up surface-card p-4 space-y-4" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
       <div class="w-10 h-1 rounded-full mx-auto mb-1 shrink-0" style="background-color: var(--border-subtle);"></div>
@@ -117,7 +116,6 @@
       </div>
 
       <div class="space-y-3.5 text-xs overflow-y-auto custom-scrollbar flex-1 pr-1">
-        <!-- 1. BACKUP BOX -->
         <div class="p-3.5 rounded-2xl border surface-card space-y-2" style="border-color: var(--border-subtle);">
           <div class="flex items-center gap-1.5">
             <span class="material-symbols-outlined text-18" style="color: var(--accent-mint);">download</span>
@@ -132,26 +130,21 @@
           </button>
         </div>
 
-        <!-- 2. UPLOAD & INDIVIDUAL PARSE BOX -->
         <div class="p-3.5 rounded-2xl border surface-card space-y-2.5" style="border-color: var(--border-subtle);">
           <div class="flex items-center gap-1.5">
             <span class="material-symbols-outlined text-18" style="color: var(--accent-cyan);">upload_file</span>
             <h4 class="text-xs font-bold" style="color: var(--text-primary);">Upload & Sync JSON to Database</h4>
           </div>
           <p class="text-[11px]" style="color: var(--text-muted);">
-            Yeh JSON file ko padhega, check karega aur <b>alag-alag results</b> bana kar database me sync karega taaki database structure corrupt na ho.
+            Yeh JSON file ko padhega aur alag-alag results bana kar sync karega.
           </p>
-
-          <!-- Hidden File Input -->
           <input type="file" id="jsonFileInput" accept=".json,application/json" class="hidden">
-
           <div id="dropZoneArea" class="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all surface-card" style="border-color: var(--border-subtle);">
             <span class="material-symbols-outlined text-28 block mb-1" style="color: var(--accent-cyan);">file_open</span>
             <span id="selectedFileNameText" class="text-xs font-bold block" style="color: var(--text-primary);">Tap to Choose .JSON File</span>
             <span class="text-[10px]" style="color: var(--text-muted);">Select JSON backup or array file</span>
           </div>
 
-          <!-- Upload Status Indicator -->
           <div id="uploadProgressInfo" class="hidden p-2.5 rounded-xl border text-[11px] font-mono" style="background-color: var(--bg-input); border-color: var(--border-subtle);">
             <div class="flex items-center justify-between">
               <span id="uploadStatusText" style="color: var(--accent-cyan);">Parsing file...</span>
@@ -186,8 +179,11 @@
         <form id="resultForm" class="space-y-3">
           <div class="grid grid-cols-2 gap-2.5">
             <div>
-              <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Result ID (Integer)</label>
-              <input type="number" id="formResId" required min="1" placeholder="201" class="w-full px-3 py-2 rounded-xl text-xs font-mono">
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-[11px] font-bold" style="color: var(--text-muted);">Result ID</label>
+                <span class="text-[9px] font-mono text-emerald-600 font-semibold">Auto-fill / Editable</span>
+              </div>
+              <input type="number" id="formResId" required min="1" placeholder="Auto" class="w-full px-3 py-2 rounded-xl text-xs font-mono">
             </div>
             <div>
               <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Category</label>
@@ -195,32 +191,48 @@
                 <option value="10th">10th</option>
                 <option value="12th">12th</option>
                 <option value="university">University</option>
-                <option value="neet">NEET/JEE</option>
-                <option value="govt">Govt Exam</option>
                 <option value="other">Other</option>
               </select>
             </div>
           </div>
-          <div>
-            <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Title</label>
-            <input type="text" id="formTitle" required placeholder="BSEB 10th Result 2026" class="w-full px-3 py-2 rounded-xl text-xs">
+
+          <!-- Title with Custom History Auto-Suggest Dropdown Box -->
+          <div class="relative">
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-[11px] font-bold" style="color: var(--text-muted);">Title</label>
+              <span class="text-[9px] text-cyan-600 font-medium">History Auto-Suggest Enabled</span>
+            </div>
+            <input type="text" id="formTitle" required placeholder="Type or select recent exam title..." class="w-full px-3 py-2 rounded-xl text-xs" autocomplete="off">
+            
+            <!-- Custom Dropdown Container -->
+            <div id="customSuggestionsBox" class="hidden absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto z-50 rounded-xl surface-card border shadow-xl custom-scrollbar" style="border-color: var(--accent-cyan); background-color: var(--bg-surface);"></div>
           </div>
+
           <div>
             <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Card Label / Subtitle</label>
-            <input type="text" id="formLabel" required placeholder="Bihar School Examination Board" class="w-full px-3 py-2 rounded-xl text-xs">
+            <input type="text" id="formLabel" required placeholder="Examination Board / Authority subtitle" class="w-full px-3 py-2 rounded-xl text-xs">
           </div>
+
           <div class="grid grid-cols-2 gap-2.5">
             <div>
-              <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Board / University</label>
-              <input type="text" id="formBoard" required placeholder="BIHAR BOARD" class="w-full px-3 py-2 rounded-xl text-xs">
+              <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Examination</label>
+              <input type="text" id="formBoard" required placeholder="BIHAR BOARD, CBSE, etc." class="w-full px-3 py-2 rounded-xl text-xs">
             </div>
             <div>
               <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Year</label>
-              <input type="text" id="formYear" required placeholder="2026" class="w-full px-3 py-2 rounded-xl text-xs font-mono">
+              <select id="formYear" required class="w-full px-3 py-2 rounded-xl text-xs font-mono">
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026" selected>2026</option>
+                <option value="2027">2027</option>
+                <option value="2028">2028</option>
+                <option value="2029">2029</option>
+                <option value="2030">2030</option>
+              </select>
             </div>
           </div>
 
-          <!-- Status Dropdown & Published Note -->
+          <!-- Status Dropdown & Dynamic Published Selection -->
           <div class="grid grid-cols-2 gap-2.5">
             <div>
               <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Status</label>
@@ -233,8 +245,17 @@
             </div>
             <div>
               <label class="block text-[11px] font-bold mb-1" style="color: var(--text-muted);">Published Note</label>
-              <input type="text" id="formPublished" required placeholder="Declared Officially" class="w-full px-3 py-2 rounded-xl text-xs">
+              <select id="formPublishedType" class="w-full px-3 py-2 rounded-xl text-xs font-medium">
+                <option value="Declared Officially">Declared Officially</option>
+                <option value="custom_date">Custom Release Date 📅</option>
+              </select>
             </div>
+          </div>
+
+          <!-- Custom Date Selector -->
+          <div id="publishedCustomDateContainer" class="hidden p-2.5 rounded-xl border surface-card space-y-1" style="border-color: var(--accent-cyan); background-color: rgba(14,116,144,0.04);">
+            <label class="block text-[10px] font-bold" style="color: var(--accent-cyan);">Pick Examination Release Date:</label>
+            <input type="date" id="formCustomReleaseDate" class="w-full px-3 py-1.5 rounded-xl text-xs font-mono">
           </div>
 
           <!-- DOUBLE TIMER BOX FOR (Coming Soon + Timer) -->
@@ -252,7 +273,6 @@
                 1. Auto Go-Live Time (Coming Soon ➔ Live 🔴)
               </label>
               <input type="datetime-local" id="formTimeLive" class="w-full px-3 py-1.5 rounded-xl text-xs font-mono">
-              <p class="text-[9px] mt-0.5" style="color: var(--text-muted);">Is time par result status auto <b>Live 🔴</b> ban jayega aur links open ho jayenge.</p>
             </div>
 
             <div>
@@ -260,7 +280,6 @@
                 2. Auto Complete Time (Live 🔴 ➔ Result Available 🟢)
               </label>
               <input type="datetime-local" id="formTimeAvailable" class="w-full px-3 py-1.5 rounded-xl text-xs font-mono">
-              <p class="text-[9px] mt-0.5" style="color: var(--text-muted);">Is time par "Live" tag hatkar hamesha ke liye <b>Result Available 🟢</b> ho jayega.</p>
             </div>
           </div>
 
@@ -270,48 +289,78 @@
             <input type="datetime-local" id="formTimeAnnounced" class="w-full px-3 py-1.5 rounded-xl text-xs font-mono">
           </div>
 
-          <!-- PORTAL LINK -->
-          <div class="p-3 rounded-xl space-y-1.5 surface-card border" style="border-color: var(--border-subtle);">
+          <!-- OFFICIAL PORTAL LINK BOX -->
+          <div id="officialPortalContainer" class="p-3 rounded-xl space-y-1.5 surface-card border transition-all" style="border-color: var(--border-subtle);">
             <div class="flex items-center justify-between">
-              <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-amber);">Official Board Website URL</span>
-              <span class="text-[9px] font-mono text-amber-700">For Coming Soon</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-amber);">Official Website URL</span>
+              <label class="flex items-center gap-1 text-[10px] font-medium cursor-pointer" style="color: var(--text-muted);">
+                <input type="checkbox" id="noOfficialUrlCheckbox" class="rounded accent-amber-600">
+                <span>No Link / Blank</span>
+              </label>
             </div>
             <input type="url" id="formPortalUrl" placeholder="https://biharboardonline.bihar.gov.in" class="w-full px-3 py-1.5 rounded-xl text-xs">
+            <p id="portalHelperText" class="text-[9px]" style="color: var(--text-muted);">Required during Coming Soon status unless Blank is checked.</p>
           </div>
 
-          <!-- 3 MARKSHEET LINKS -->
-          <div class="p-3 rounded-xl space-y-2 surface-card border" style="border-color: var(--border-subtle);">
+          <!-- 3 MARKSHEET LINKS BOX -->
+          <div id="marksheetLinksContainer" class="p-3 rounded-xl space-y-2 surface-card border" style="border-color: var(--border-subtle);">
             <div class="flex items-center justify-between">
               <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-cyan);">Official Result Marksheet Links</span>
-              <span class="text-[9px] font-mono text-emerald-700">Blank = Hidden in App</span>
+              <span id="linksRequirementBadge" class="text-[9px] font-mono text-cyan-600 font-semibold">Min 1 link required</span>
             </div>
 
             <div>
-              <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Server 1 (Primary Result Link - Required)</label>
-              <input type="url" id="formUrl" required placeholder="https://results.biharboardonline.com" class="w-full px-3 py-1.5 rounded-xl text-xs">
+              <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Server 1 URL</label>
+              <input type="url" id="formUrl" placeholder="https://results.example.com" class="w-full px-3 py-1.5 rounded-xl text-xs">
             </div>
 
             <div>
-              <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Server 2 (Backup Link - Optional)</label>
-              <input type="url" id="formUrl2" placeholder="https://server2.com (Leave blank = hidden)" class="w-full px-3 py-1.5 rounded-xl text-xs">
+              <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Server 2 URL (Optional)</label>
+              <input type="url" id="formUrl2" placeholder="https://server2.example.com (Leave blank = hidden in app)" class="w-full px-3 py-1.5 rounded-xl text-xs">
             </div>
 
             <div>
-              <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Server 3 (Third Link - Optional)</label>
-              <input type="url" id="formUrl3" placeholder="https://server3.com (Leave blank = hidden)" class="w-full px-3 py-1.5 rounded-xl text-xs">
+              <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Server 3 URL (Optional)</label>
+              <input type="url" id="formUrl3" placeholder="https://server3.example.com (Leave blank = hidden in app)" class="w-full px-3 py-1.5 rounded-xl text-xs">
             </div>
           </div>
 
-          <!-- Description -->
+          <!-- Primary Description -->
           <div class="space-y-1">
             <div class="flex items-center justify-between">
-              <label class="block text-[11px] font-bold" style="color: var(--text-muted);">Description</label>
+              <label class="block text-[11px] font-bold" style="color: var(--text-muted);">Main Description (Markdown / HTML)</label>
               <button type="button" id="descHelperBtn" class="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md surface-card border" style="border-color: var(--border-subtle); color: var(--accent-cyan);">
                 <span class="material-symbols-outlined text-14">info</span>
-                <span>Format Guide</span>
+                <span>GitHub Markdown Guide</span>
               </button>
             </div>
-            <textarea id="formDescription" required rows="3" placeholder="Instructions, cutoff details..." class="w-full px-3 py-2 rounded-xl text-xs resize-none"></textarea>
+            <textarea id="formDescription" required rows="3" placeholder="Official announcement notes, cutoff details or ## Headings..." class="w-full px-3 py-2 rounded-xl text-xs resize-none"></textarea>
+          </div>
+
+          <!-- Extra Description / Download Guide Section Toggle -->
+          <div class="p-3 rounded-2xl border surface-card space-y-2" style="border-color: var(--border-subtle);">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold block" style="color: var(--text-primary);">Add Guide / Extra Section</span>
+                <span class="text-[10px]" style="color: var(--text-muted);">How to download, server down instructions, etc.</span>
+              </div>
+              <button type="button" id="toggleExtraSectionBtn" class="px-2 py-1 rounded-lg text-[10px] font-bold border surface-card flex items-center gap-1" style="border-color: var(--border-subtle); color: var(--accent-cyan);">
+                <span class="material-symbols-outlined text-14" id="extraToggleIcon">add</span>
+                <span id="extraToggleText">Enable</span>
+              </button>
+            </div>
+
+            <div id="extraSectionContainer" class="hidden space-y-2 pt-2 border-t" style="border-color: var(--border-subtle);">
+              <div class="flex items-center justify-between">
+                <label class="block text-[10px] font-bold" style="color: var(--text-muted);">Section Type Name</label>
+                <select id="extraSectionType" class="px-2 py-1 rounded-lg text-xs font-semibold surface-card border" style="border-color: var(--border-subtle);">
+                  <option value="Guide">Guide (How to Download)</option>
+                  <option value="Instructions">Instructions (Server Down / Help)</option>
+                  <option value="Description">Extra Description</option>
+                </select>
+              </div>
+              <textarea id="formExtraContent" rows="3" placeholder="Step 1: Open link&#10;Step 2: Enter roll number... (Supports Markdown ##, links, images)" class="w-full px-3 py-2 rounded-xl text-xs resize-none"></textarea>
+            </div>
           </div>
 
           <!-- Push Switch Row -->
@@ -326,7 +375,7 @@
             </label>
           </div>
 
-          <!-- PUSH CUSTOMIZER -->
+                <!-- PUSH CUSTOMIZER -->
           <div id="pushPreviewContainer" class="hidden p-3.5 rounded-2xl border space-y-3.5 surface-card" style="border-color: var(--accent-mint); background-color: rgba(4,120,87,0.03);">
             <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-subtle);">
               <span class="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style="color: var(--accent-mint);">
@@ -336,9 +385,30 @@
               <span class="text-[9px] font-mono px-2 py-0.5 rounded-full font-bold" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">RICH BROADCAST</span>
             </div>
 
+            <!-- Channel & Priority Controls in results.html (NEW) -->
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-semibold mb-1" style="color: var(--text-muted);">Android Notification Channel</label>
+                <select id="pushCustomChannel" class="w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold surface-card border" style="border-color: var(--border-subtle);">
+                  <option value="Result Alerts" selected>Result Alerts</option>
+                  <option value="Urgent">Urgent</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold mb-1" style="color: var(--text-muted);">Priority & Popup Mode</label>
+                <select id="pushCustomPriority" class="w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold surface-card border" style="border-color: var(--border-subtle);">
+                  <option value="urgent" selected>Urgent (Heads-up Pop)</option>
+                  <option value="high">High (Sound & Tray)</option>
+                  <option value="normal">Normal (Quiet)</option>
+                </select>
+              </div>
+            </div>
+
             <div class="space-y-2">
               <div>
                 <label class="block text-[10px] font-semibold mb-1" style="color: var(--text-muted);">Push Notification Title</label>
+                <input type="text" id="pushCustomTitle" placeholder="Notification Title..." class="w-full px-3 py-2 rounded-xl text-xs surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+              </div>
                 <input type="text" id="pushCustomTitle" placeholder="Notification Title..." class="w-full px-3 py-2 rounded-xl text-xs surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
               </div>
               <div>
@@ -356,10 +426,6 @@
               <div>
                 <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Big Picture Image URL (Optional)</label>
                 <input type="url" id="pushCustomBigPicture" placeholder="https://example.com/banner.jpg" class="w-full px-3 py-1.5 rounded-xl text-xs">
-              </div>
-              <div>
-                <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Large Icon URL (Optional)</label>
-                <input type="url" id="pushCustomLargeIcon" placeholder="https://example.com/icon.png" class="w-full px-3 py-1.5 rounded-xl text-xs">
               </div>
             </div>
 
@@ -408,6 +474,48 @@
         <button type="submit" form="resultForm" id="resultSubmitBtn" class="w-full py-2.5 rounded-xl font-bold text-xs shadow-md" style="background-color: var(--accent-mint); color: var(--bg-void);">
           Save Result
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Format Guide Modal -->
+  <div id="formatGuideModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden p-4">
+    <div class="w-full max-w-sm rounded-2xl surface-card border p-4 space-y-3" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+      <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-subtle);">
+        <div class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-18" style="color: var(--accent-cyan);">code</span>
+          <h4 class="text-xs font-bold" style="color: var(--text-primary);">GitHub Markdown & HTML Guide</h4>
+        </div>
+        <button type="button" id="closeGuideModalBtn" class="w-7 h-7 rounded-lg flex items-center justify-center surface-card border" style="border-color: var(--border-subtle);">
+          <span class="material-symbols-outlined text-16">close</span>
+        </button>
+      </div>
+
+      <div class="space-y-2 text-[11px] max-h-80 overflow-y-auto custom-scrollbar pr-1" style="color: var(--text-muted);">
+        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
+          <span class="font-bold text-xs" style="color: var(--text-primary);">1. Headings (Large & Bold)</span>
+          <p class="font-mono text-[10px] text-emerald-700 select-all">## Big Heading (H2)<br>### Medium Heading (H3)</p>
+        </div>
+        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
+          <span class="font-bold text-xs" style="color: var(--text-primary);">2. Bold & Italic</span>
+          <p class="font-mono text-[10px] text-emerald-700 select-all">**Bold Text** ya &lt;b&gt;Bold&lt;/b&gt;<br>*Italic Text* ya &lt;i&gt;Italic&lt;/i&gt;</p>
+        </div>
+        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
+          <span class="font-bold text-xs" style="color: var(--text-primary);">3. Clickable Web Links</span>
+          <p class="font-mono text-[10px] text-emerald-700 select-all">[Official Portal](https://bseb.in)<br>&lt;a href="https://bseb.in"&gt;Check Marks&lt;/a&gt;</p>
+        </div>
+        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
+          <span class="font-bold text-xs" style="color: var(--text-primary);">4. Embedded Images / Banners</span>
+          <p class="font-mono text-[10px] text-emerald-700 select-all">![Image Caption](https://example.com/pic.jpg)<br>&lt;img src="https://example.com/pic.jpg"&gt;</p>
+        </div>
+        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
+          <span class="font-bold text-xs" style="color: var(--text-primary);">5. Bullet Points & Numbered Steps</span>
+          <p class="font-mono text-[10px] text-emerald-700 select-all">- Step 1: Open website<br>- Step 2: Enter roll code<br>1. First Step<br>2. Second Step</p>
+        </div>
+        <div class="p-2 rounded-xl bg-black/5 border space-y-0.5" style="border-color: var(--border-subtle);">
+          <span class="font-bold text-xs" style="color: var(--text-primary);">6. Line Break & Divider</span>
+          <p class="font-mono text-[10px] text-emerald-700 select-all">&lt;br&gt; ya New Line<br>--- (Horizontal line divider)</p>
+        </div>
       </div>
     </div>
   </div>

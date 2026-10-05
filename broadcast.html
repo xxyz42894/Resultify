@@ -83,6 +83,16 @@
         <textarea id="bcBody" required rows="3" placeholder="Enter message text..." class="w-full px-3.5 py-2.5 rounded-xl text-xs resize-none" style="color: var(--text-primary);"></textarea>
       </div>
 
+      <!-- Notification Channel Selector (NEW) -->
+      <div class="space-y-1.5">
+        <label class="block text-[11px] font-bold" style="color: var(--text-muted);">NOTIFICATION CHANNEL:</label>
+        <select id="bcChannelSelect" class="w-full px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+          <option value="Result Alerts" selected>Result Alerts (Standard Result Announcements)</option>
+          <option value="Urgent">Urgent (Critical Server & Live Result Alerts)</option>
+        </select>
+        <p class="text-[9px]" style="color: var(--text-muted);">Android OS me notification is channel ID par deliver hogi.</p>
+      </div>
+
       <!-- Delivery Priority (Urgent Pop vs High vs Normal) -->
       <div class="space-y-1.5">
         <label class="block text-[11px] font-bold" style="color: var(--text-muted);">DELIVERY PRIORITY & DISPLAY BEHAVIOR:</label>

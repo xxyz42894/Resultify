@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  <!-- Sabse pehle security script load honi chahiye -->
   <script src="./js/security-guard.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Resultify - Subscribers</title>
@@ -58,21 +57,26 @@
     </div>
 
     <!-- Live Telemetry KPI Interactive Header -->
-    <div class="p-2 rounded-xl flex items-center justify-between text-[11px] font-semibold" style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle);">
-      <button id="pillAll" class="px-2.5 py-1 rounded-lg cursor-pointer transition-all flex items-center gap-1" style="background-color: var(--bg-elevated); border: 1px solid var(--border-subtle);">
+    <div class="p-2 rounded-xl flex items-center justify-between text-[11px] font-semibold gap-1.5 overflow-x-auto no-scrollbar" style="background-color: var(--bg-surface); border: 1px solid var(--border-subtle);">
+      <button id="pillAll" class="px-2 py-1 rounded-lg cursor-pointer transition-all flex items-center gap-1 shrink-0" style="background-color: var(--bg-elevated); border: 1px solid var(--border-subtle);">
         <span style="color: var(--text-muted);">Total:</span>
         <span id="statTotalSub" class="font-mono font-bold" style="color: var(--text-primary);">0</span>
       </button>
 
-      <button id="pillOnline" class="px-2.5 py-1 rounded-lg cursor-pointer transition-all flex items-center gap-1.5" style="background-color: rgba(4, 120, 87, 0.15); border: 1px solid var(--accent-mint);">
-        <span class="w-2 h-2 rounded-full animate-ping" style="background-color: var(--accent-mint);"></span>
+      <button id="pillOnline" class="px-2 py-1 rounded-lg cursor-pointer transition-all flex items-center gap-1 shrink-0" style="background-color: rgba(4, 120, 87, 0.15); border: 1px solid var(--accent-mint);">
+        <span class="w-1.5 h-1.5 rounded-full animate-ping" style="background-color: var(--accent-mint);"></span>
         <span style="color: var(--accent-mint);">Online:</span>
         <span id="statOnlineSub" class="font-mono font-bold" style="color: var(--accent-mint);">0</span>
       </button>
 
-      <button id="pillInactive" class="px-2.5 py-1 rounded-lg cursor-pointer transition-all flex items-center gap-1" style="background-color: var(--bg-elevated); border: 1px solid var(--border-subtle);">
+      <button id="pillInactive" class="px-2 py-1 rounded-lg cursor-pointer transition-all flex items-center gap-1 shrink-0" style="background-color: var(--bg-elevated); border: 1px solid var(--border-subtle);">
         <span style="color: var(--text-muted);">Inactive:</span>
         <span id="statInactiveSub" class="font-mono font-bold" style="color: var(--accent-amber);">0</span>
+      </button>
+
+      <button id="pillUninstalled" class="px-2 py-1 rounded-lg cursor-pointer transition-all flex items-center gap-1 shrink-0" style="background-color: rgba(190, 18, 60, 0.12); border: 1px solid rgba(190, 18, 60, 0.3);">
+        <span style="color: var(--accent-rose);">Uninstalled:</span>
+        <span id="statUninstalledSub" class="font-mono font-bold" style="color: var(--accent-rose);">0</span>
       </button>
     </div>
 
@@ -146,13 +150,20 @@
         </div>
       </div>
 
-      <!-- Persistent Dismiss Button -->
-      <div class="p-3 border-t shrink-0" style="border-color: var(--border-subtle); background-color: var(--bg-void);">
+      <!-- Action Buttons (Delete Subscriber + Close Profile) -->
+      <div class="p-3 border-t shrink-0 space-y-2" style="border-color: var(--border-subtle); background-color: var(--bg-void);">
+        <button id="deleteSubBtn" class="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border" style="background-color: rgba(190, 18, 60, 0.1); border-color: rgba(190, 18, 60, 0.3); color: var(--accent-rose);">
+          <span class="material-symbols-outlined text-16">delete_forever</span>
+          <span>Delete Subscriber Record</span>
+        </button>
+
         <button id="bottomCloseBtn" class="w-full py-2.5 rounded-xl text-xs font-bold" style="background-color: var(--bg-elevated); color: var(--text-primary);">
           Close Profile
         </button>
       </div>
     </div>
   </div>
+
+  <div id="toastContainer" class="fixed top-4 inset-x-4 z-50 pointer-events-none space-y-2"></div>
 </body>
 </html>
