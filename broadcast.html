@@ -57,13 +57,44 @@
           <span id="targetAudienceCountBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">Calculating...</span>
         </div>
         <select id="targetAudience" class="w-full px-3 py-2.5 rounded-xl text-xs font-semibold cursor-pointer surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
-          <option value="all" selected>All Subscribed Devices (Complete Base)</option>
+          <option value="all_clean" selected>All Devices (Auto-Clean: Ignore Ghost IDs)</option>
+          <option value="all_raw">All Raw Devices (Including Ghost/Duplicates)</option>
           <option value="custom_active_range">Custom Active Range (Aapke chune hue din ke bhitar)</option>
           <option value="custom_inactive_threshold">Custom Inactive Users (Itne din se jyada inactive)</option>
           <option value="testing_all">All OneSignal Test Users</option>
           <option value="testing_specific">Specific Test User Selection</option>
         </select>
         <p id="audienceExplanationText" class="text-[10px] font-medium" style="color: var(--text-muted);"></p>
+      </div>
+
+      <!-- SMART GHOST DEVICE TOGGLE / INSPECTOR BOX -->
+      <div id="ghostDeviceAlertBox" class="hidden p-3 rounded-2xl border space-y-2" style="background-color: rgba(225, 29, 72, 0.06); border-color: rgba(225, 29, 72, 0.35);">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-16 text-rose-500">phonelink_erase</span>
+            <span class="text-xs font-bold text-rose-500">Ghost / Duplicate Devices Detected</span>
+          </div>
+          <span id="ghostCountBadge" class="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-500">0 Dead IDs</span>
+        </div>
+        
+        <p class="text-[10px]" style="color: var(--text-muted);">
+          App clear data/reinstall se bane purane inactive duplicate IDs detect hue hain. Inhe ignore karne par aapka quota aur message waste hone se bachega.
+        </p>
+
+        <!-- Toggle Checkbox -->
+        <label class="flex items-center justify-between p-2 rounded-xl border surface-card cursor-pointer" style="border-color: var(--border-subtle);">
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="toggleIgnoreGhost" checked class="rounded accent-rose-600">
+            <div>
+              <span class="text-xs font-bold block" style="color: var(--text-primary);">Ignore Dead Ghost Devices</span>
+              <span class="text-[9px]" style="color: var(--text-muted);">Sirf latest active subscription par message bhejo</span>
+            </div>
+          </div>
+          <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded text-emerald-600 bg-emerald-500/15">RECOMMENDED</span>
+        </label>
+
+        <!-- Detailed Ghost Devices List -->
+        <div id="ghostDevicesList" class="space-y-1.5 max-h-32 overflow-y-auto custom-scrollbar pt-1"></div>
       </div>
 
       <!-- CUSTOM DATE/DAY RANGE PICKER CONTAINER -->
