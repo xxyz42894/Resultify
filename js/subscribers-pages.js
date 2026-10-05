@@ -1,8 +1,9 @@
-import { getOneSignalSubscribers } from "./onesignal-api.js";
+import { getOneSignalSubscribers, deleteOneSignalSubscriber } from "./onesignal-api.js";
 
 let players = [];
 let searchQuery = "";
 let timeFilter = "all";
+let activePlayerBeingInspected = null;
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
@@ -12,6 +13,22 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function showToast(message, type = "info") {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+  const toast = document.createElement("div");
+  const colors = {
+    success: "background-color:#DDD6C7; border:1px solid #047857; color:#047857;",
+    error: "background-color:#DDD6C7; border:1px solid #BE123C; color:#BE123C;",
+    info: "background-color:#DDD6C7; border:1px solid #BAAF98; color:#0E7490;"
+  };
+  toast.className = "flex items-center gap-2 px-3.5 py-2.5 rounded-xl shadow-md";
+  toast.style.cssText = colors[type] || colors.info;
+  toast.innerHTML = `<span class="material-symbols-outlined text-18">info</span><span class="text-xs font-semibold">${escapeHtml(message)}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
 }
 
 function formatRelativeTime(sec) {
@@ -55,6 +72,10 @@ function translateDeviceName(model) {
   return model;
 }
 
+function isUninstalledOrOptedOut(p) {
+  return Boolean(p.invalid_identifier || p.opted_out || p.notification_types === -2);
+}
+
 // Main Fetcher
 async function loadSubscribers() {
   const feed = document.getElementById("devicesFeed");
@@ -62,17 +83,21 @@ async function loadSubscribers() {
 
   feed.innerHTML = '<p class="text-center text-xs py-12 font-medium" style="color:var(--text-muted);">Fetching subscriber registry from OneSignal...</p>';
 
-  const res = await getOneSignalSubscribers({ limit: 50 });
-  feed.innerHTML = "";
+  try {
+    const res = await getOneSignalSubscribers();
+    feed.innerHTML = "";
 
-  if (!res.success || !res.players || res.players.length === 0) {
-    feed.innerHTML = '<p class="text-center text-xs py-12 font-medium" style="color:var(--text-muted);">No subscribed devices found.</p>';
-    updateTelemetryCounters([], 0, 0);
-    return;
+    if (!res.success || !res.players || res.players.length === 0) {
+      feed.innerHTML = '<p class="text-center text-xs py-12 font-medium" style="color:var(--text-muted);">No subscribed devices found.</p>';
+      updateTelemetryCounters([], 0, 0, 0);
+      return;
+    }
+
+    players = res.players;
+    applyFiltersAndRender();
+  } catch (err) {
+    if (feed) feed.innerHTML = `<div class="p-4 rounded-xl border text-center text-xs text-rose-500">${escapeHtml(err.message)}</div>`;
   }
-
-  players = res.players;
-  applyFiltersAndRender();
 }
 
 // Filter & Render Engine
@@ -84,50 +109,57 @@ function applyFiltersAndRender() {
   const nowSec = Math.floor(Date.now() / 1000);
   let onlineCount = 0;
   let inactiveCount = 0;
+  let uninstalledCount = 0;
 
-  // Calculate Real-Time Presence Totals
   players.forEach(p => {
-    const diff = nowSec - (p.last_active || 0);
-    const isOnline = diff <= 120 && !p.invalid_identifier; // Strictly active in 2 min
-    if (isOnline) {
-      onlineCount++;
+    if (isUninstalledOrOptedOut(p)) {
+      uninstalledCount++;
     } else {
-      inactiveCount++;
+      const diff = nowSec - (p.last_active || 0);
+      const isOnline = diff <= 120;
+      if (isOnline) {
+        onlineCount++;
+      } else {
+        inactiveCount++;
+      }
     }
   });
 
-  updateTelemetryCounters(players, onlineCount, inactiveCount);
+  updateTelemetryCounters(players, onlineCount, inactiveCount, uninstalledCount);
 
-  // Filter List according to Selected Activity Dropdown & Search
   const filtered = players.filter(p => {
+    const isUninstalled = isUninstalledOrOptedOut(p);
     const diffSec = nowSec - (p.last_active || 0);
-    const isUnsubscribed = Boolean(p.invalid_identifier);
-    const isOnline = diffSec <= 120 && !isUnsubscribed;
+    const isOnline = diffSec <= 120 && !isUninstalled;
 
-    // 1. Strict Status & Time Filters
-    if (timeFilter === "online_now") {
-      if (!isOnline) return false;
-    } else if (timeFilter === "10m") {
-      if (diffSec > 600 || isUnsubscribed) return false;
-    } else if (timeFilter === "2h") {
-      if (diffSec > 7200 || isUnsubscribed) return false;
-    } else if (timeFilter === "1d") {
-      if (diffSec > 86400 || isUnsubscribed) return false;
-    } else if (timeFilter === "4d") {
-      if (diffSec > 345600 || isUnsubscribed) return false;
-    } else if (timeFilter === "7d") {
-      if (diffSec > 604800 || isUnsubscribed) return false;
-    } else if (timeFilter === "15d") {
-      if (diffSec > 1296000 || isUnsubscribed) return false;
-    } else if (timeFilter === "30d") {
-      if (diffSec > 2592000 || isUnsubscribed) return false;
-    } else if (timeFilter === "inactive_30d") {
-      if (diffSec <= 2592000 || isUnsubscribed) return false;
+    if (timeFilter === "all") {
+      // Show all devices
     } else if (timeFilter === "uninstalled") {
-      if (!isUnsubscribed) return false;
+      if (!isUninstalled) return false;
+    } else {
+      if (isUninstalled) return false;
+
+      if (timeFilter === "online_now") {
+        if (!isOnline) return false;
+      } else if (timeFilter === "10m") {
+        if (diffSec > 600) return false;
+      } else if (timeFilter === "2h") {
+        if (diffSec > 7200) return false;
+      } else if (timeFilter === "1d") {
+        if (diffSec > 86400) return false;
+      } else if (timeFilter === "4d") {
+        if (diffSec > 345600) return false;
+      } else if (timeFilter === "7d") {
+        if (diffSec > 604800) return false;
+      } else if (timeFilter === "15d") {
+        if (diffSec > 1296000) return false;
+      } else if (timeFilter === "30d") {
+        if (diffSec > 2592000) return false;
+      } else if (timeFilter === "inactive_30d") {
+        if (diffSec <= 2592000) return false;
+      }
     }
 
-    // 2. Search Box Query Matching
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const name = translateDeviceName(p.device_model).toLowerCase();
@@ -146,11 +178,10 @@ function applyFiltersAndRender() {
     return;
   }
 
-  // Render High-Contrast Cards
   filtered.forEach(p => {
     const diffSec = nowSec - (p.last_active || 0);
-    const isOnlineNow = diffSec <= 120 && !p.invalid_identifier; // Strictly 2 min
-    const isUnsubscribed = Boolean(p.invalid_identifier);
+    const isUnsubscribed = isUninstalledOrOptedOut(p);
+    const isOnlineNow = diffSec <= 120 && !isUnsubscribed;
     const friendlyName = translateDeviceName(p.device_model);
     const installDate = formatDateTime(p.created_at);
     const lastActiveRel = formatRelativeTime(p.last_active);
@@ -159,7 +190,6 @@ function applyFiltersAndRender() {
     const card = document.createElement("div");
     card.className = "p-3.5 rounded-2xl surface-card cursor-pointer transition-all hover:border-[var(--accent-mint)] space-y-2.5";
     
-    // Status text badge logic
     let statusPillHtml = '';
     if (isUnsubscribed) {
       statusPillHtml = '<span class="text-[8px] px-1.5 py-0.2 rounded font-mono font-bold mt-0.5" style="background-color:rgba(190,18,60,0.15); color:var(--accent-rose); border:1px solid rgba(190,18,60,0.3);">UNINSTALLED</span>';
@@ -168,7 +198,6 @@ function applyFiltersAndRender() {
     }
 
     card.innerHTML = `
-      <!-- Row 1: Device Name + (Model) + Activity Relative -->
       <div class="flex items-start justify-between gap-2">
         <div class="flex items-center gap-2.5 min-w-0 flex-1">
           <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style="background-color:rgba(4,120,87,0.12); border:1px solid rgba(4,120,87,0.3); color:var(--accent-mint);">
@@ -188,13 +217,11 @@ function applyFiltersAndRender() {
         </div>
       </div>
 
-      <!-- Row 2: Subscription ID -->
       <div class="p-2 rounded-xl text-[10px] font-mono flex items-center justify-between" style="background-color:var(--bg-input); border:1px solid var(--border-subtle);">
         <span style="color:var(--text-muted);">Sub ID:</span>
         <span class="truncate ml-2 select-all font-bold" style="color:var(--text-primary);">${escapeHtml(subId)}</span>
       </div>
 
-      <!-- Row 3: Install Date & Uninstall Date if uninstalled -->
       <div class="flex items-center justify-between text-[11px] px-0.5" style="color:var(--text-muted);">
         <div class="flex items-center gap-1">
           <span class="material-symbols-outlined text-14" style="color:var(--accent-amber);">event</span>
@@ -218,41 +245,42 @@ function applyFiltersAndRender() {
   });
 }
 
-function updateTelemetryCounters(allList, onlineCount, inactiveCount) {
+function updateTelemetryCounters(allList, onlineCount, inactiveCount, uninstalledCount) {
   const statTotal = document.getElementById("statTotalSub");
   const statOnline = document.getElementById("statOnlineSub");
   const statInactive = document.getElementById("statInactiveSub");
+  const statUninstalled = document.getElementById("statUninstalledSub");
 
   if (statTotal) statTotal.textContent = allList.length;
   if (statOnline) statOnline.textContent = onlineCount;
   if (statInactive) statInactive.textContent = inactiveCount;
+  if (statUninstalled) statUninstalled.textContent = uninstalledCount;
 }
 
 // Bottom Sheet Profile Inspector
 const subSheet = document.getElementById("subSheet");
 
 function openProfile(p) {
+  activePlayerBeingInspected = p;
   const friendlyName = translateDeviceName(p.device_model);
   const nowSec = Math.floor(Date.now() / 1000);
   const diffSec = nowSec - (p.last_active || 0);
-  const isOnlineNow = diffSec <= 120 && !p.invalid_identifier;
+  const isUnsubscribed = isUninstalledOrOptedOut(p);
+  const isOnlineNow = diffSec <= 120 && !isUnsubscribed;
 
-  // 1. Hardware
   document.getElementById("mDeviceName").textContent = friendlyName;
   document.getElementById("mModel").textContent = p.device_model || "Android Device";
   document.getElementById("mOs").textContent = `Google Android ${p.device_os || "N/A"}`;
   document.getElementById("mAppVersion").textContent = p.game_version || "1 (App Build)";
   document.getElementById("mSdkVersion").textContent = p.sdk || "051002 (OneSignal SDK v5)";
 
-  // 2. Activity
   document.getElementById("mCreatedAt").textContent = formatDateTime(p.created_at);
   document.getElementById("mLastActive").textContent = `${formatDateTime(p.last_active)} (${formatRelativeTime(p.last_active)})`;
   document.getElementById("mSessions").textContent = `${p.session_count || 1} Total sessions`;
   document.getElementById("mDuration").textContent = formatPlaytime(p.playtime || 0);
 
-  // Uninstalled Row check
   const uninstallRow = document.getElementById("mUninstallRow");
-  if (p.invalid_identifier) {
+  if (isUnsubscribed) {
     if (uninstallRow) {
       uninstallRow.classList.remove("hidden");
       document.getElementById("mUninstalledAt").textContent = formatDateTime(p.last_active);
@@ -261,19 +289,16 @@ function openProfile(p) {
     if (uninstallRow) uninstallRow.classList.add("hidden");
   }
 
-  // 3. Location & Regional
   document.getElementById("mCountry").textContent = p.country ? `${p.country} (${p.country === 'IN' ? 'India' : p.country})` : "India (IN)";
   document.getElementById("mTimezone").textContent = p.timezone || "Asia/Kolkata";
   document.getElementById("mLanguage").textContent = p.language ? `${p.language} (English)` : "en (English)";
-  document.getElementById("mIp").textContent = p.ip || "2409:4064:2b94:3c85:bd08:5d91:e46f:659f";
+  document.getElementById("mIp").textContent = p.ip || "Not recorded";
 
-  // 4. Identifiers & Token
   document.getElementById("mSubId").textContent = p.id || "N/A";
   document.getElementById("mPushToken").textContent = p.identifier || "No Push Token Recorded";
 
-  // Status Badge in Sheet Header
   const statusBadge = document.getElementById("mStatusBadge");
-  if (p.invalid_identifier) {
+  if (isUnsubscribed) {
     statusBadge.textContent = "UNINSTALLED / UNSUBSCRIBED";
     statusBadge.style.cssText = "background-color:rgba(190,18,60,0.15); color:var(--accent-rose); border:1px solid rgba(190,18,60,0.3);";
   } else if (isOnlineNow) {
@@ -289,6 +314,39 @@ function openProfile(p) {
 
 function closeProfile() {
   if (subSheet) subSheet.classList.add("hidden");
+  activePlayerBeingInspected = null;
+}
+
+// Delete Subscriber Action Handler
+const deleteSubBtn = document.getElementById("deleteSubBtn");
+if (deleteSubBtn) {
+  deleteSubBtn.addEventListener("click", async () => {
+    if (!activePlayerBeingInspected || !activePlayerBeingInspected.id) return;
+
+    const subId = activePlayerBeingInspected.id;
+    const confirmMsg = `Are you sure you want to permanently delete this subscriber from OneSignal?\n\nSub ID: ${subId}`;
+    if (!confirm(confirmMsg)) return;
+
+    deleteSubBtn.disabled = true;
+    deleteSubBtn.innerHTML = `<span class="material-symbols-outlined text-16 animate-spin">refresh</span> Deleting...`;
+
+    try {
+      const res = await deleteOneSignalSubscriber(subId);
+      if (res.success) {
+        showToast("Subscriber profile deleted permanently!", "success");
+        players = players.filter(item => item.id !== subId);
+        applyFiltersAndRender();
+        closeProfile();
+      } else {
+        showToast("Delete failed: " + (res.error || "OneSignal error"), "error");
+      }
+    } catch (e) {
+      showToast("Exception: " + e.message, "error");
+    } finally {
+      deleteSubBtn.disabled = false;
+      deleteSubBtn.innerHTML = `<span class="material-symbols-outlined text-16">delete_forever</span><span>Delete Subscriber Record</span>`;
+    }
+  });
 }
 
 // Event Listeners
@@ -343,6 +401,15 @@ if (pillInactive) {
   pillInactive.addEventListener("click", () => {
     if (timeFilterSelect) timeFilterSelect.value = "inactive_30d";
     timeFilter = "inactive_30d";
+    applyFiltersAndRender();
+  });
+}
+
+const pillUninstalled = document.getElementById("pillUninstalled");
+if (pillUninstalled) {
+  pillUninstalled.addEventListener("click", () => {
+    if (timeFilterSelect) timeFilterSelect.value = "uninstalled";
+    timeFilter = "uninstalled";
     applyFiltersAndRender();
   });
 }

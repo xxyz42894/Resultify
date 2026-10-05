@@ -48,7 +48,6 @@ export async function getOneSignalOverview() {
   }
 }
 
-// Fetch all sent messages with delivery counts & click analytics (NEW)
 export async function getOneSignalNotifications(offset = 0) {
   try {
     const res = await callOneSignalApi(`action=notifications&offset=${offset}`);
@@ -80,6 +79,25 @@ export async function getOneSignalSubscribers() {
       success: false,
       totalCount: 0,
       players: [],
+      error: error.message
+    };
+  }
+}
+
+// Exactly passes subscriptionId without trim or encode manipulation
+export async function deleteOneSignalSubscriber(subscriptionId) {
+  try {
+    const res = await callOneSignalApi(`action=delete_subscription&subscription_id=${subscriptionId}`, {
+      method: "POST",
+      body: JSON.stringify({ subscriptionId: subscriptionId })
+    });
+    return {
+      success: Boolean(res.success),
+      data: res.data || res
+    };
+  } catch (error) {
+    return {
+      success: false,
       error: error.message
     };
   }

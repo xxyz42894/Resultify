@@ -466,13 +466,18 @@ if (form) {
       }
     }
 
+        // In boardcast-page.js -> form submit listener
+    const selectedChannel = document.getElementById("bcChannelSelect")?.value || "Result Alerts";
+
     const oneSignalPayload = {
       target_channel: "push",
       headings: { en: title },
       contents: { en: body },
       include_subscription_ids: targetIds,
-      priority_mode: selectedMode
+      priority_mode: selectedMode,
+      existing_android_channel_id: selectedChannel
     };
+
 
     if (selectedMode === "urgent") {
       oneSignalPayload.priority = 10;

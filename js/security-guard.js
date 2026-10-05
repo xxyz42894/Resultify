@@ -1,4 +1,5 @@
 // Resultify Anti-Inspection & Integrity Guard
+/*
 (function () {
   'use strict';
 
@@ -166,3 +167,4 @@
   setInterval(removeHtmlComments, 2000);
   detectMobileDevTools();
 })();
+*/

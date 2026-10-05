@@ -38,7 +38,7 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.remove(), 4000);
 }
 
-// 1. SAFE TIMER ENGINE (Sirf tab trigger hoga jab explicit Coming Soon + Timer status ho)
+// 1. SAFE TIMER ENGINE
 function evaluateTimedResults() {
   const now = Date.now();
   results.forEach(async (r) => {
@@ -110,15 +110,25 @@ function syncPushPreview() {
   }
 }
 
+// 3. STATUS & URL VALIDATION LOGIC ENGINE
 function setupStatusLogic() {
   const statusSelect = document.getElementById("formStatus");
   const timerComingSoon = document.getElementById("timerSectionComingSoon");
   const timerAnnounced = document.getElementById("timerSectionAnnounced");
+  const portalBox = document.getElementById("officialPortalContainer");
+  const portalInput = document.getElementById("formPortalUrl");
+  const portalHelper = document.getElementById("portalHelperText");
+  const noOfficialUrlCheckbox = document.getElementById("noOfficialUrlCheckbox");
+  const linksBadge = document.getElementById("linksRequirementBadge");
+  const publishedType = document.getElementById("formPublishedType");
+  const customDateContainer = document.getElementById("publishedCustomDateContainer");
 
   if (!statusSelect) return;
 
-  statusSelect.onchange = () => {
+  function refreshLogic() {
     const val = statusSelect.value;
+    const isComingSoon = val.includes("Coming Soon");
+
     if (val === "Coming Soon + Timer") {
       if (timerComingSoon) timerComingSoon.classList.remove("hidden");
       if (timerAnnounced) timerAnnounced.classList.add("hidden");
@@ -129,7 +139,42 @@ function setupStatusLogic() {
       if (timerComingSoon) timerComingSoon.classList.add("hidden");
       if (timerAnnounced) timerAnnounced.classList.add("hidden");
     }
-  };
+
+    if (isComingSoon) {
+      if (noOfficialUrlCheckbox && noOfficialUrlCheckbox.checked) {
+        if (portalInput) portalInput.required = false;
+        if (portalHelper) portalHelper.textContent = "Official link set to blank.";
+      } else {
+        if (portalInput) portalInput.required = true;
+        if (portalHelper) portalHelper.textContent = "Official link required for Coming Soon (unless Blank is checked).";
+      }
+      if (linksBadge) linksBadge.textContent = "Optional (Hidden until Result Live)";
+    } else {
+      if (portalInput) portalInput.required = false;
+      if (portalHelper) portalHelper.textContent = "Optional for Available/Announced status.";
+      if (linksBadge) linksBadge.textContent = "Min 1 link required (Server 1, 2 or 3)";
+    }
+  }
+
+  statusSelect.onchange = refreshLogic;
+  if (noOfficialUrlCheckbox) {
+    noOfficialUrlCheckbox.onchange = () => {
+      if (noOfficialUrlCheckbox.checked && portalInput) portalInput.value = "";
+      refreshLogic();
+    };
+  }
+
+  if (publishedType && customDateContainer) {
+    publishedType.onchange = () => {
+      if (publishedType.value === "custom_date") {
+        customDateContainer.classList.remove("hidden");
+      } else {
+        customDateContainer.classList.add("hidden");
+      }
+    };
+  }
+
+  refreshLogic();
 }
 
 function setupPushCustomizerEvents() {
@@ -204,7 +249,109 @@ function setupPushCustomizerEvents() {
   }
 }
 
-// 3. AUTH & DATABASE REAL-TIME LISTENER
+// 4. ROBUST CUSTOM HISTORY AUTO-SUGGEST DROPDOWN
+function setupTitleAutofill() {
+  const titleInput = document.getElementById("formTitle");
+  const suggestionsBox = document.getElementById("customSuggestionsBox");
+  const labelInput = document.getElementById("formLabel");
+  const boardInput = document.getElementById("formBoard");
+  const catSelect = document.getElementById("formCategory");
+
+  if (!suggestionsBox || !titleInput) return;
+
+  function renderSuggestions(query = "") {
+    const q = query.toLowerCase().trim();
+    const uniqueMap = new Map();
+
+    results.forEach(r => {
+      if (r.title && r.title.trim()) {
+        const t = r.title.trim();
+        if (!uniqueMap.has(t) && (q === "" || t.toLowerCase().includes(q))) {
+          uniqueMap.set(t, r);
+        }
+      }
+    });
+
+    if (uniqueMap.size === 0) {
+      suggestionsBox.classList.add("hidden");
+      suggestionsBox.innerHTML = "";
+      return;
+    }
+
+    suggestionsBox.innerHTML = "";
+    uniqueMap.forEach((item, title) => {
+      const row = document.createElement("div");
+      row.className = "px-3 py-2 text-xs cursor-pointer hover:bg-black/10 border-b flex items-center justify-between";
+      row.style.borderColor = "var(--border-subtle)";
+      row.innerHTML = `
+        <div class="min-w-0 flex-1">
+          <span class="font-bold block truncate" style="color:var(--text-primary);">${escapeHtml(title)}</span>
+          <span class="text-[10px] truncate block" style="color:var(--text-muted);">${escapeHtml(item.boardOrUniversity || '')} · ${escapeHtml(item.label || '')}</span>
+        </div>
+        <span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ml-2" style="background-color:rgba(14,116,144,0.15); color:var(--accent-cyan);">${escapeHtml(item.category || '10th')}</span>
+      `;
+
+      row.onmousedown = (e) => {
+        e.preventDefault();
+        titleInput.value = title;
+        if (labelInput) labelInput.value = item.label || "";
+        if (boardInput) boardInput.value = item.boardOrUniversity || "";
+        if (catSelect && item.category) catSelect.value = item.category;
+        suggestionsBox.classList.add("hidden");
+        showToast(`Auto-filled: "${title}"`, "info");
+      };
+
+      suggestionsBox.appendChild(row);
+    });
+
+    suggestionsBox.classList.remove("hidden");
+  }
+
+  titleInput.oninput = () => renderSuggestions(titleInput.value);
+  titleInput.onfocus = () => renderSuggestions(titleInput.value);
+  titleInput.onblur = () => {
+    setTimeout(() => {
+      if (suggestionsBox) suggestionsBox.classList.add("hidden");
+    }, 200);
+  };
+}
+
+// 5. EXTRA SECTION TOGGLE SETUP
+function setupExtraSectionEvents() {
+  const toggleBtn = document.getElementById("toggleExtraSectionBtn");
+  const container = document.getElementById("extraSectionContainer");
+  const icon = document.getElementById("extraToggleIcon");
+  const text = document.getElementById("extraToggleText");
+
+  if (!toggleBtn || !container) return;
+
+  toggleBtn.onclick = () => {
+    const isHidden = container.classList.contains("hidden");
+    if (isHidden) {
+      container.classList.remove("hidden");
+      icon.textContent = "remove";
+      text.textContent = "Remove";
+    } else {
+      container.classList.add("hidden");
+      icon.textContent = "add";
+      text.textContent = "Enable";
+      const extraContent = document.getElementById("formExtraContent");
+      if (extraContent) extraContent.value = "";
+    }
+  };
+}
+
+// 6. FORMAT GUIDE MODAL
+function setupFormatGuideModal() {
+  const openBtn = document.getElementById("descHelperBtn");
+  const closeBtn = document.getElementById("closeGuideModalBtn");
+  const modal = document.getElementById("formatGuideModal");
+
+  if (openBtn && modal) openBtn.onclick = () => modal.classList.remove("hidden");
+  if (closeBtn && modal) closeBtn.onclick = () => modal.classList.add("hidden");
+}
+
+// 7. AUTH & REALTIME LISTENER
 onAuthStateChanged(auth, async (user) => {
   if (!user) return;
   try {
@@ -224,10 +371,10 @@ function setupListener() {
         results.push({ key: child.key, ...child.val() });
       });
     }
-    // Sort newest first
     results.sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
     evaluateTimedResults();
     updateStatusCounters();
+    setupTitleAutofill();
     render();
   });
   setInterval(evaluateTimedResults, 30000);
@@ -265,6 +412,7 @@ function updateStatusCounters() {
   if (elAnn) elAnn.textContent = countAnnounced;
 }
 
+// Filter-Aware Bulk Action Bar Update
 function updateBulkActionBar() {
   const bar = document.getElementById("bulkActionBar");
   const countEl = document.getElementById("selectedItemsCount");
@@ -278,21 +426,21 @@ function updateBulkActionBar() {
     bar.classList.add("hidden");
   }
 
-  const allVisibleKeys = getFilteredResults().map(r => r.key);
-  if (selectAll && allVisibleKeys.length > 0) {
-    selectAll.checked = allVisibleKeys.every(k => selectedResultKeys.has(k));
+  const visibleResults = getFilteredResults();
+  if (selectAll && visibleResults.length > 0) {
+    selectAll.checked = visibleResults.every(r => selectedResultKeys.has(r.key));
+  } else if (selectAll) {
+    selectAll.checked = false;
   }
 }
 
 function getFilteredResults() {
   return results.filter(r => {
-    // 1. Category Filter
     if (activeCat !== "all") {
       const c = (r.category || "").toLowerCase().trim();
       if (c !== activeCat.toLowerCase()) return false;
     }
 
-    // 2. Status Filter
     if (activeStatus !== "all") {
       const st = (r.status || "").toLowerCase().trim();
       if (activeStatus === "available" && !st.includes("available") && st !== "live") return false;
@@ -301,7 +449,6 @@ function getFilteredResults() {
       if (activeStatus === "announced" && !st.includes("announced")) return false;
     }
 
-    // 3. Search Query Filter
     if (searchQuery) {
       const q = searchQuery.toLowerCase().trim();
       const matchTitle = (r.title || "").toLowerCase().includes(q);
@@ -376,9 +523,7 @@ function render() {
               <span class="material-symbols-outlined text-12">language</span> Board Portal
             </a>
           ` : `
-            <a href="${escapeHtml(r.url || '#')}" target="_blank" class="text-[10px] font-bold flex items-center gap-0.5 hover:underline" style="color:var(--accent-cyan);">
-              <span class="material-symbols-outlined text-12">link</span> S1
-            </a>
+            ${r.url ? `<a href="${escapeHtml(r.url)}" target="_blank" class="text-[10px] font-bold flex items-center gap-0.5 hover:underline" style="color:var(--accent-cyan);"><span class="material-symbols-outlined text-12">link</span> S1</a>` : ''}
             ${r.url2 ? `<a href="${escapeHtml(r.url2)}" target="_blank" class="text-[10px] font-bold flex items-center gap-0.5 hover:underline" style="color:var(--accent-mint);"><span class="material-symbols-outlined text-12">link</span> S2</a>` : ''}
             ${r.url3 ? `<a href="${escapeHtml(r.url3)}" target="_blank" class="text-[10px] font-bold flex items-center gap-0.5 hover:underline" style="color:var(--accent-amber);"><span class="material-symbols-outlined text-12">link</span> S3</a>` : ''}
           `}
@@ -451,7 +596,7 @@ function render() {
   updateBulkActionBar();
 }
 
-// 4. BULK ACTIONS
+// 8. BULK ACTIONS (Available, Coming Soon & Delete)
 const bulkMakeLiveBtn = document.getElementById("bulkMakeLiveBtn");
 if (bulkMakeLiveBtn) {
   bulkMakeLiveBtn.addEventListener("click", async () => {
@@ -495,6 +640,28 @@ if (bulkComingSoonBtn) {
   });
 }
 
+const bulkDeleteBtn = document.getElementById("bulkDeleteBtn");
+if (bulkDeleteBtn) {
+  bulkDeleteBtn.addEventListener("click", async () => {
+    if (selectedResultKeys.size === 0) return;
+    if (confirm(`Are you sure you want to permanently DELETE ${selectedResultKeys.size} results?`)) {
+      try {
+        const updates = {};
+        selectedResultKeys.forEach(k => {
+          updates[`results/${k}`] = null;
+        });
+        await update(ref(database), updates);
+        showToast(`${selectedResultKeys.size} results deleted permanently!`, "info");
+        selectedResultKeys.clear();
+        updateBulkActionBar();
+      } catch (err) {
+        showToast("Error deleting results: " + err.message, "error");
+      }
+    }
+  });
+}
+
+// Filter-Aware Select All Handler
 const selectAllCheckbox = document.getElementById("selectAllCheckbox");
 if (selectAllCheckbox) {
   selectAllCheckbox.addEventListener("change", (e) => {
@@ -509,7 +676,7 @@ if (selectAllCheckbox) {
   });
 }
 
-// 5. ADD/EDIT BOTTOM SHEET MODAL
+// 9. MODAL ENGINE (Auto ID + Published logic + Extra Guide)
 const modalSheet = document.getElementById("resultModalSheet");
 function openModal(key = null) {
   editingKey = key;
@@ -518,30 +685,35 @@ function openModal(key = null) {
 
   const toggle = document.getElementById("formSendPushToggle");
   const container = document.getElementById("pushPreviewContainer");
-  const timerComingSoon = document.getElementById("timerSectionComingSoon");
-  const timerAnnounced = document.getElementById("timerSectionAnnounced");
+  const noOfficialUrlCheckbox = document.getElementById("noOfficialUrlCheckbox");
+  const publishedType = document.getElementById("formPublishedType");
+  const customDateContainer = document.getElementById("publishedCustomDateContainer");
+  const customDateInput = document.getElementById("formCustomReleaseDate");
+  const extraContainer = document.getElementById("extraSectionContainer");
+  const extraToggleIcon = document.getElementById("extraToggleIcon");
+  const extraToggleText = document.getElementById("extraToggleText");
+  const suggestionsBox = document.getElementById("customSuggestionsBox");
 
   if (toggle) toggle.checked = false;
   if (container) container.classList.add("hidden");
-  if (timerComingSoon) timerComingSoon.classList.add("hidden");
-  if (timerAnnounced) timerAnnounced.classList.add("hidden");
+  if (noOfficialUrlCheckbox) noOfficialUrlCheckbox.checked = false;
+  if (customDateContainer) customDateContainer.classList.add("hidden");
+  if (extraContainer) extraContainer.classList.add("hidden");
+  if (extraToggleIcon) extraToggleIcon.textContent = "add";
+  if (extraToggleText) extraToggleText.textContent = "Enable";
+  if (suggestionsBox) suggestionsBox.classList.add("hidden");
 
-  [
-    "pushCustomTitle", "pushCustomBody", "pushCustomUrl", 
-    "pushCustomBigPicture", "pushCustomLargeIcon", 
-    "pushCustomBtn1Url", "pushCustomBtn2Text", "pushCustomBtn2Url"
-  ].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.value = "";
-      delete el.dataset.touched;
-    }
-  });
-
-  const b1Text = document.getElementById("pushCustomBtn1Text");
-  if (b1Text) b1Text.value = "Check Result";
-
-  if (key) {
+  // AUTO-INCREMENT INTEGER ID (Highest ID + 1)
+  if (!key) {
+    let maxId = 0;
+    results.forEach(r => {
+      const numId = parseInt(r.id);
+      if (!isNaN(numId) && numId > maxId) maxId = numId;
+    });
+    document.getElementById("formResId").value = maxId + 1;
+    document.getElementById("formYear").value = "2026";
+    if (publishedType) publishedType.value = "Declared Officially";
+  } else {
     const r = results.find(x => x.key === key);
     if (!r) return;
     document.getElementById("formResId").value = r.id;
@@ -549,26 +721,49 @@ function openModal(key = null) {
     document.getElementById("formTitle").value = r.title || "";
     document.getElementById("formLabel").value = r.label || "";
     document.getElementById("formBoard").value = r.boardOrUniversity || "";
-    document.getElementById("formYear").value = r.year || "";
+    document.getElementById("formYear").value = r.year || "2026";
     document.getElementById("formStatus").value = r.status || "Result Available";
-    document.getElementById("formPublished").value = r.published || "Declared Officially";
     document.getElementById("formPortalUrl").value = r.portalUrl || "";
     document.getElementById("formUrl").value = r.url || "";
     document.getElementById("formUrl2").value = r.url2 || "";
     document.getElementById("formUrl3").value = r.url3 || "";
     document.getElementById("formDescription").value = r.description || "";
 
+    const pub = r.published || "Declared Officially";
+    if (pub.startsWith("202") || pub.includes("-")) {
+      if (publishedType) publishedType.value = "custom_date";
+      if (customDateContainer) customDateContainer.classList.remove("hidden");
+      if (customDateInput) customDateInput.value = pub;
+    } else {
+      if (publishedType) publishedType.value = "Declared Officially";
+      if (customDateContainer) customDateContainer.classList.add("hidden");
+    }
+
+    if (!r.portalUrl && noOfficialUrlCheckbox) {
+      noOfficialUrlCheckbox.checked = true;
+    }
+
     if (r.timeLive) document.getElementById("formTimeLive").value = r.timeLive;
     if (r.timeAvailable) document.getElementById("formTimeAvailable").value = r.timeAvailable;
     if (r.timeAnnounced) document.getElementById("formTimeAnnounced").value = r.timeAnnounced;
 
-    if (r.status === "Coming Soon + Timer" && timerComingSoon) timerComingSoon.classList.remove("hidden");
-    if (r.status === "Date Announced" && timerAnnounced) timerAnnounced.classList.remove("hidden");
+    if (r.extraContent) {
+      if (extraContainer) extraContainer.classList.remove("hidden");
+      if (extraToggleIcon) extraToggleIcon.textContent = "remove";
+      if (extraToggleText) extraToggleText.textContent = "Remove";
+      const extraType = document.getElementById("extraSectionType");
+      const extraText = document.getElementById("formExtraContent");
+      if (extraType) extraType.value = r.extraType || "Guide";
+      if (extraText) extraText.value = r.extraContent || "";
+    }
   }
 
   if (modalSheet) modalSheet.classList.remove("hidden");
-  setupPushCustomizerEvents();
   setupStatusLogic();
+  setupPushCustomizerEvents();
+  setupTitleAutofill();
+  setupExtraSectionEvents();
+  setupFormatGuideModal();
 }
 
 function closeModal() {
@@ -585,11 +780,43 @@ if (sheetClose) sheetClose.addEventListener("click", closeModal);
 const sheetBack = document.getElementById("resultSheetBackBtn");
 if (sheetBack) sheetBack.addEventListener("click", closeModal);
 
-// FORM SUBMIT HANDLER
+// 10. FORM SUBMIT HANDLER
 const resultForm = document.getElementById("resultForm");
 if (resultForm) {
   resultForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const statusVal = document.getElementById("formStatus").value;
+    const portalVal = document.getElementById("formPortalUrl").value.trim();
+    const url1Val = document.getElementById("formUrl").value.trim();
+    const url2Val = document.getElementById("formUrl2").value.trim();
+    const url3Val = document.getElementById("formUrl3").value.trim();
+    const noPortalChecked = document.getElementById("noOfficialUrlCheckbox")?.checked;
+    const publishedType = document.getElementById("formPublishedType")?.value;
+    const customDateVal = document.getElementById("formCustomReleaseDate")?.value;
+
+    if (statusVal.includes("Coming Soon") && !noPortalChecked && !portalVal) {
+      alert("Official Website URL is required for Coming Soon status! If you don't have it, check 'No Link / Blank'.");
+      document.getElementById("formPortalUrl").focus();
+      return;
+    }
+
+    if ((statusVal.includes("Available") || statusVal.includes("Announced")) && (!url1Val && !url2Val && !url3Val)) {
+      alert("Please provide at least 1 Server link (Server 1, 2, or 3) for Available or Announced results!");
+      document.getElementById("formUrl").focus();
+      return;
+    }
+
+    let finalPublished = "Declared Officially";
+    if (publishedType === "custom_date") {
+      finalPublished = customDateVal ? customDateVal : "Announced Soon";
+    }
+
+    const extraContainer = document.getElementById("extraSectionContainer");
+    const hasExtra = extraContainer && !extraContainer.classList.contains("hidden");
+    const extraType = hasExtra ? document.getElementById("extraSectionType")?.value : "";
+    const extraContent = hasExtra ? document.getElementById("formExtraContent")?.value.trim() : "";
+
     const data = {
       id: parseInt(document.getElementById("formResId").value),
       title: document.getElementById("formTitle").value.trim(),
@@ -597,16 +824,18 @@ if (resultForm) {
       category: document.getElementById("formCategory").value,
       boardOrUniversity: document.getElementById("formBoard").value.trim(),
       year: document.getElementById("formYear").value.trim(),
-      status: document.getElementById("formStatus").value,
-      published: document.getElementById("formPublished").value.trim(),
-      portalUrl: document.getElementById("formPortalUrl").value.trim(),
-      url: document.getElementById("formUrl").value.trim(),
-      url2: document.getElementById("formUrl2").value.trim(),
-      url3: document.getElementById("formUrl3").value.trim(),
+      status: statusVal,
+      published: finalPublished,
+      portalUrl: portalVal,
+      url: url1Val,
+      url2: url2Val,
+      url3: url3Val,
       timeLive: document.getElementById("formTimeLive")?.value || "",
       timeAvailable: document.getElementById("formTimeAvailable")?.value || "",
       timeAnnounced: document.getElementById("formTimeAnnounced")?.value || "",
       description: document.getElementById("formDescription").value.trim(),
+      extraType: extraType || "",
+      extraContent: extraContent || "",
       openActivity: "ResultDetailActivity",
       createdAt: editingKey ? (results.find(x => x.key === editingKey)?.createdAt || Date.now()) : Date.now(),
       notificationSent: editingKey ? (results.find(x => x.key === editingKey)?.notificationSent || false) : false
@@ -617,7 +846,6 @@ if (resultForm) {
     const customBody = document.getElementById("pushCustomBody")?.value.trim();
     const customUrl = document.getElementById("pushCustomUrl")?.value.trim();
     const customBigPic = document.getElementById("pushCustomBigPicture")?.value.trim();
-    const customLargeIcon = document.getElementById("pushCustomLargeIcon")?.value.trim();
     const b1Text = document.getElementById("pushCustomBtn1Text")?.value.trim() || "Check Result";
     const b1Url = document.getElementById("pushCustomBtn1Url")?.value.trim();
     const b2Text = document.getElementById("pushCustomBtn2Text")?.value.trim();
@@ -633,24 +861,27 @@ if (resultForm) {
         const newRef = push(ref(database, "results"));
         await set(newRef, data);
         targetRefKey = newRef.key;
-        showToast("Result published to database", "success");
+        showToast(`Result #${data.id} published to database!`, "success");
       }
 
-      if (toggle && toggle.checked) {
+         if (toggle && toggle.checked) {
         const actionButtons = [];
         if (b1Text) actionButtons.push({ id: "btn_action_1", text: b1Text, url: b1Url || undefined });
         if (b2Text) actionButtons.push({ id: "btn_action_2", text: b2Text, url: b2Url || undefined });
+
+        const selectedChannel = document.getElementById("pushCustomChannel")?.value || "Result Alerts";
+        const selectedPriority = document.getElementById("pushCustomPriority")?.value || "urgent";
 
         const oneSignalPayload = {
           target_channel: "push",
           headings: { en: customTitle || `${data.title} Out! 🎯` },
           contents: { en: customBody || (data.description ? data.description.replace(/<[^>]*>?/gm, '').substring(0, 150) : "Tap to check your result now!") },
-          priority_mode: "urgent",
-          priority: 10,
-          existing_android_channel_id: "Result Alerts",
-          android_sound: "default",
+          priority_mode: selectedPriority,
+          priority: selectedPriority === "normal" ? 5 : 10,
+          existing_android_channel_id: selectedChannel,
+          android_sound: selectedPriority === "normal" ? null : "default",
           android_visibility: 1,
-          android_accent_color: "FF047857",
+          android_accent_color: selectedChannel === "Urgent" ? "FFB45309" : "FF047857",
           data: {
             resultId: String(data.id || ""),
             category: data.category || "",
@@ -661,7 +892,6 @@ if (resultForm) {
 
         if (customUrl) oneSignalPayload.url = customUrl;
         if (customBigPic) oneSignalPayload.big_picture = customBigPic;
-        if (customLargeIcon) oneSignalPayload.large_icon = customLargeIcon;
         if (actionButtons.length > 0) {
           oneSignalPayload.buttons = actionButtons;
           oneSignalPayload.web_buttons = actionButtons;
@@ -672,9 +902,10 @@ if (resultForm) {
           if (targetRefKey) {
             await update(ref(database, `results/${targetRefKey}`), { notificationSent: true });
           }
-          showToast("Push notification dispatched with media!", "success");
+          showToast(`Push sent via "${selectedChannel}" channel!`, "success");
         }
       }
+
 
       closeModal();
     } catch (err) {
@@ -683,9 +914,7 @@ if (resultForm) {
   });
 }
 
-// ====================================================================
-// 6. JSON MANAGER ENGINE (POPUP, PARSE & SYNC INDIVIDUALLY + BACKUP)
-// ====================================================================
+// 11. BACKUP & JSON UPLOAD SYNC
 const syncModal = document.getElementById("syncJsonModal");
 const openSyncBtn = document.getElementById("openSyncModalBtn");
 const closeSyncBtn = document.getElementById("closeSyncModalBtn");
@@ -722,7 +951,6 @@ function resetUploadState() {
   if (uploadProgressInfo) uploadProgressInfo.classList.add("hidden");
 }
 
-// A. Timestamped JSON Backup
 if (downloadBackupBtn) {
   downloadBackupBtn.addEventListener("click", async () => {
     try {
@@ -768,7 +996,6 @@ if (downloadBackupBtn) {
   });
 }
 
-// B. File Select & Validation
 if (dropZoneArea && jsonFileInput) {
   dropZoneArea.onclick = () => jsonFileInput.click();
 
@@ -821,7 +1048,6 @@ if (dropZoneArea && jsonFileInput) {
   };
 }
 
-// C. Individual Result-by-Result Synchronization
 if (startUploadSyncBtn) {
   startUploadSyncBtn.onclick = async () => {
     if (!parsedResultsToUpload || parsedResultsToUpload.length === 0) return;
@@ -857,6 +1083,8 @@ if (startUploadSyncBtn) {
         timeAvailable: item.timeAvailable || "",
         timeAnnounced: item.timeAnnounced || "",
         description: String(item.description || item.body || item.details || "Official examination marksheet and result.").trim(),
+        extraType: item.extraType || "",
+        extraContent: item.extraContent || "",
         openActivity: "ResultDetailActivity",
         createdAt: item.createdAt || Date.now(),
         notificationSent: Boolean(item.notificationSent)
@@ -890,7 +1118,7 @@ if (startUploadSyncBtn) {
   };
 }
 
-// 7. FILTER PILLS SETUP
+// 12. FILTER PILLS SETUP (Selection auto-cleared on filter switch)
 document.querySelectorAll(".cat-pill").forEach(pill => {
   pill.addEventListener("click", () => {
     document.querySelectorAll(".cat-pill").forEach(p => {
@@ -900,6 +1128,7 @@ document.querySelectorAll(".cat-pill").forEach(pill => {
     pill.classList.add("active");
     pill.style.cssText = "border:1px solid var(--accent-mint); background-color:rgba(4,120,87,0.15); color:var(--accent-mint);";
     activeCat = pill.dataset.cat;
+    selectedResultKeys.clear();
     render();
   });
 });
@@ -913,6 +1142,7 @@ document.querySelectorAll(".status-pill").forEach(pill => {
     pill.classList.add("active");
     pill.style.cssText = "border:1px solid var(--accent-mint); background-color:rgba(4,120,87,0.15); color:var(--accent-mint);";
     activeStatus = pill.dataset.status;
+    selectedResultKeys.clear();
     render();
   });
 });
@@ -921,6 +1151,7 @@ const searchInput = document.getElementById("searchInput");
 if (searchInput) {
   searchInput.addEventListener("input", (e) => {
     searchQuery = e.target.value;
+    selectedResultKeys.clear();
     render();
   });
 }
