@@ -96,10 +96,71 @@ export default async function handler(req, res) {
     }
   }
 
-  // 4. Exact Official OneSignal v5: DELETE https://api.onesignal.com/apps/{app_id}/subscriptions/{subscription_id}
-  if (req.method === "DELETE" || (req.method === "POST" && action === "delete_subscription")) {
+  // 4. Message / Notification Delete API (Targets Notification UUID)
+  if (action === "delete_notification" || action === "delete_message" || action === "cancel_notification") {
     try {
-      // Untouched subscription ID without any trim or regex alteration
+      let notificationId = req.query.notification_id || req.query.id;
+      if (!notificationId && req.body) {
+        const parsed = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+        notificationId = parsed.notificationId || parsed.id;
+      }
+
+      if (!notificationId) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          error: "Notification UUID missing hai."
+        });
+      }
+
+      const targetUrl = `https://api.onesignal.com/notifications/${notificationId}?app_id=${ONESIGNAL_APP_ID}`;
+
+      const response = await fetch(targetUrl, {
+        method: "DELETE",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json"
+        }
+      });
+
+      let resData = {};
+      const responseText = await response.text();
+      try {
+        resData = JSON.parse(responseText);
+      } catch (ignored) {
+        resData = { rawResponse: responseText };
+      }
+
+      if (response.ok) {
+        return res.status(200).json({
+          success: true,
+          statusCode: 200,
+          message: "Notification successfully deleted from OneSignal.",
+          data: resData
+        });
+      }
+
+      const errorMsg = resData.errors?.[0] || resData.error || `HTTP ${response.status} Error`;
+      return res.status(response.status).json({
+        success: false,
+        statusCode: response.status,
+        error: errorMsg,
+        errors: resData.errors || [errorMsg],
+        data: resData
+      });
+
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        statusCode: 500,
+        error: "Server Error: " + err.message
+      });
+    }
+  }
+
+  // 5. Subscription Delete API (Targets Device Subscription ID)
+  if (action === "delete_subscription") {
+    try {
       let subscriptionId = req.query.subscription_id || req.query.sub_id || req.query.id;
       if (!subscriptionId && req.body) {
         const parsed = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
@@ -114,7 +175,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Exact raw endpoint match
       const targetUrl = `https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}/subscriptions/${subscriptionId}`;
 
       const response = await fetch(targetUrl, {
@@ -159,68 +219,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 5. Official OneSignal Message Cancel / Delete API (NEW)
-  if (req.method === "DELETE" || (req.method === "POST" && (action === "delete_notification" || action === "cancel_notification"))) {
-    try {
-      let notificationId = req.query.notification_id || req.query.id;
-      if (!notificationId && req.body) {
-        const parsed = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-        notificationId = parsed.notificationId || parsed.id;
-      }
-
-      if (!notificationId) {
-        return res.status(400).json({
-          success: false,
-          statusCode: 400,
-          error: "Notification ID missing hai."
-        });
-      }
-
-      const targetUrl = `https://api.onesignal.com/notifications/${notificationId}?app_id=${ONESIGNAL_APP_ID}`;
-
-      const response = await fetch(targetUrl, {
-        method: "DELETE",
-        headers: {
-          "Authorization": authHeader,
-          "Content-Type": "application/json"
-        }
-      });
-
-      let resData = {};
-      const responseText = await response.text();
-      try {
-        resData = JSON.parse(responseText);
-      } catch (ignored) {
-        resData = { rawResponse: responseText };
-      }
-
-      if (response.ok) {
-        return res.status(200).json({
-          success: true,
-          statusCode: 200,
-          data: resData
-        });
-      }
-
-      const errorMsg = resData.errors?.[0] || resData.error || `HTTP ${response.status} Error`;
-      return res.status(response.status).json({
-        success: false,
-        statusCode: response.status,
-        error: errorMsg,
-        errors: resData.errors || [errorMsg],
-        data: resData
-      });
-
-    } catch (err) {
-      return res.status(500).json({
-        success: false,
-        statusCode: 500,
-        error: "Server Error: " + err.message
-      });
-    }
-  }
-
-  // 6. Send Push Notification API
+  // 6. Send Push Notification API (Handles Segment & Direct Subscription IDs)
   if (req.method === "POST") {
     try {
       const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
@@ -228,11 +227,12 @@ export default async function handler(req, res) {
       const titleText = parsedBody.headings?.en || parsedBody.title || "Notification";
       const bodyText = parsedBody.contents?.en || parsedBody.body || "";
       const rawSubIds = parsedBody.include_subscription_ids || parsedBody.subscription_ids || (parsedBody.target_device_id ? [parsedBody.target_device_id] : []);
+      const includedSegments = parsedBody.included_segments;
 
       let targets = [];
       if (Array.isArray(rawSubIds) && rawSubIds.length > 0) {
         targets = rawSubIds;
-      } else {
+      } else if (!includedSegments || !Array.isArray(includedSegments) || includedSegments.length === 0) {
         try {
           const fetchPlayers = await fetch(`https://api.onesignal.com/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
             method: "GET",
@@ -250,11 +250,11 @@ export default async function handler(req, res) {
         }
       }
 
-      if (!targets || targets.length === 0) {
+      if ((!targets || targets.length === 0) && (!includedSegments || includedSegments.length === 0)) {
         return res.status(400).json({
           success: false,
           statusCode: 400,
-          error: "Target Error: Koi valid active Subscription ID nahi mili."
+          error: "Target Error: Koi valid active Subscription ID ya Segment nahi mila."
         });
       }
 
@@ -298,13 +298,18 @@ export default async function handler(req, res) {
         target_channel: "push",
         headings: { en: String(titleText) },
         contents: { en: String(bodyText) },
-        include_subscription_ids: targets,
         existing_android_channel_id: targetChannel,
         data: {
           ...(parsedBody.data || {}),
           ...buttonUrlsData
         }
       };
+
+      if (Array.isArray(includedSegments) && includedSegments.length > 0) {
+        oneSignalPayload.included_segments = includedSegments;
+      } else {
+        oneSignalPayload.include_subscription_ids = targets;
+      }
 
       if (parsedBody.url && androidButtons.length === 0) {
         oneSignalPayload.url = String(parsedBody.url);
@@ -351,7 +356,7 @@ export default async function handler(req, res) {
         statusCode: response.status,
         id: resData.id || null,
         messageId: resData.id || null,
-        recipients: resData.recipients ?? (hasValidId ? targets.length : 0),
+        recipients: resData.recipients ?? (hasValidId ? (targets.length || 1) : 0),
         rawOneSignalResponse: resData,
         outgoingPayloadSent: oneSignalPayload
       });
