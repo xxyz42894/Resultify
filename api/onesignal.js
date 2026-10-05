@@ -1,12 +1,13 @@
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
+  // Exact credentials without any trim or regex replacement
   const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
   const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
 
@@ -14,21 +15,20 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       statusCode: 500,
-      error: "Vercel Config Error: ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY is missing."
+      error: "Vercel Config Error: ONESIGNAL_APP_ID ya ONESIGNAL_REST_API_KEY missing hai."
     });
   }
 
-  const rawKey = ONESIGNAL_REST_API_KEY.replace(/^Key\s+/i, "").trim();
-  const authHeader = `Key ${rawKey}`;
+  const authHeader = `Key ${ONESIGNAL_REST_API_KEY}`;
 
   const action = (req.query.action || "").toLowerCase().trim();
   const limit = req.query.limit || 50;
   const offset = req.query.offset || 0;
 
-  // 1. Overview API (Working Stable v1 Endpoint)
+  // 1. Overview API
   if (req.method === "GET" && (!action || action === "overview")) {
     try {
-      const response = await fetch(`https://onesignal.com/api/v1/apps/${ONESIGNAL_APP_ID}`, {
+      const response = await fetch(`https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}`, {
         method: "GET",
         headers: {
           "Authorization": authHeader,
@@ -51,11 +51,10 @@ export default async function handler(req, res) {
     }
   }
 
-  // 2. View Messages / Notifications API (Notifications History)
+  // 2. Notifications History API
   if (req.method === "GET" && (action === "notifications" || action === "messages")) {
     try {
-      const targetApiUrl = `https://onesignal.com/api/v1/notifications?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`;
-
+      const targetApiUrl = `https://api.onesignal.com/notifications?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`;
       const response = await fetch(targetApiUrl, {
         method: "GET",
         headers: {
@@ -63,9 +62,7 @@ export default async function handler(req, res) {
           "Content-Type": "application/json"
         }
       });
-
       const data = await response.json();
-
       return res.status(response.status).json({
         success: response.ok,
         statusCode: response.status,
@@ -77,10 +74,10 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Subscribers List API (Working Stable v1 Endpoint)
+  // 3. Subscribers List API
   if (req.method === "GET" && (action === "subscribers" || action === "players")) {
     try {
-      const response = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
+      const response = await fetch(`https://api.onesignal.com/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
         method: "GET",
         headers: {
           "Authorization": authHeader,
@@ -99,7 +96,70 @@ export default async function handler(req, res) {
     }
   }
 
-  // 4. Send Push Notification API
+  // 4. Exact Official OneSignal v5: DELETE https://api.onesignal.com/apps/{app_id}/subscriptions/{subscription_id}
+  if (req.method === "DELETE" || (req.method === "POST" && action === "delete_subscription")) {
+    try {
+      // Untouched subscription ID without any trim or regex alteration
+      let subscriptionId = req.query.subscription_id || req.query.sub_id || req.query.id;
+      if (!subscriptionId && req.body) {
+        const parsed = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+        subscriptionId = parsed.subscriptionId || parsed.sub_id || parsed.id;
+      }
+
+      if (!subscriptionId) {
+        return res.status(400).json({
+          success: false,
+          statusCode: 400,
+          error: "Subscription ID missing hai."
+        });
+      }
+
+      // Exact raw endpoint match
+      const targetUrl = `https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}/subscriptions/${subscriptionId}`;
+
+      const response = await fetch(targetUrl, {
+        method: "DELETE",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json"
+        }
+      });
+
+      let resData = {};
+      const responseText = await response.text();
+      try {
+        resData = JSON.parse(responseText);
+      } catch (ignored) {
+        resData = { rawResponse: responseText };
+      }
+
+      if (response.ok) {
+        return res.status(200).json({
+          success: true,
+          statusCode: 200,
+          message: "Subscription successfully deleted.",
+          data: resData
+        });
+      }
+
+      const errorMsg = resData.errors?.[0] || resData.error || `HTTP ${response.status} Error`;
+      return res.status(response.status).json({
+        success: false,
+        statusCode: response.status,
+        error: errorMsg,
+        data: resData
+      });
+
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        statusCode: 500,
+        error: "Server Error: " + err.message
+      });
+    }
+  }
+
+  // 5. Send Push Notification API
   if (req.method === "POST") {
     try {
       const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
@@ -110,10 +170,10 @@ export default async function handler(req, res) {
 
       let targets = [];
       if (Array.isArray(rawSubIds) && rawSubIds.length > 0) {
-        targets = rawSubIds.map(id => String(id).trim());
+        targets = rawSubIds;
       } else {
         try {
-          const fetchPlayers = await fetch(`https://onesignal.com/api/v1/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
+          const fetchPlayers = await fetch(`https://api.onesignal.com/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
             method: "GET",
             headers: {
               "Authorization": authHeader,
@@ -123,7 +183,7 @@ export default async function handler(req, res) {
           const pData = await fetchPlayers.json();
           targets = (pData.players || [])
             .filter(p => !p.invalid_identifier)
-            .map(p => String(p.id).trim());
+            .map(p => p.id);
         } catch (e) {
           targets = [];
         }
@@ -138,6 +198,7 @@ export default async function handler(req, res) {
       }
 
       const mode = parsedBody.priority_mode || (Number(parsedBody.priority) === 5 ? "normal" : "urgent");
+      const targetChannel = parsedBody.existing_android_channel_id || (mode === "urgent" ? "Urgent" : "Result Alerts");
 
       const buttonUrlsData = {};
       const androidButtons = [];
@@ -177,6 +238,7 @@ export default async function handler(req, res) {
         headings: { en: String(titleText) },
         contents: { en: String(bodyText) },
         include_subscription_ids: targets,
+        existing_android_channel_id: targetChannel,
         data: {
           ...(parsedBody.data || {}),
           ...buttonUrlsData
@@ -189,7 +251,6 @@ export default async function handler(req, res) {
 
       if (mode === "urgent") {
         oneSignalPayload.priority = 10;
-        oneSignalPayload.existing_android_channel_id = "Result Alerts";
         oneSignalPayload.android_sound = "default";
         oneSignalPayload.android_visibility = 1;
         oneSignalPayload.android_accent_color = "FF047857";
@@ -197,6 +258,7 @@ export default async function handler(req, res) {
         oneSignalPayload.priority = 10;
         oneSignalPayload.android_sound = "default";
         oneSignalPayload.android_visibility = 1;
+        oneSignalPayload.android_accent_color = "FFB45309";
       } else {
         oneSignalPayload.priority = 5;
         oneSignalPayload.android_sound = null;
@@ -211,7 +273,7 @@ export default async function handler(req, res) {
         oneSignalPayload.web_buttons = webButtons;
       }
 
-      const response = await fetch("https://onesignal.com/api/v1/notifications?c=push", {
+      const response = await fetch("https://api.onesignal.com/notifications?c=push", {
         method: "POST",
         headers: {
           "Authorization": authHeader,
