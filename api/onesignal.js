@@ -7,7 +7,6 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Exact credentials without any trim or regex replacement
   const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
   const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
 
@@ -96,7 +95,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 4. Message / Notification Delete API (Targets Notification UUID)
+  // 4. Message / Notification Delete API
   if (action === "delete_notification" || action === "delete_message" || action === "cancel_notification") {
     try {
       let notificationId = req.query.notification_id || req.query.id;
@@ -158,7 +157,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 5. Subscription Delete API (Targets Device Subscription ID)
+  // 5. Subscription Delete API
   if (action === "delete_subscription") {
     try {
       let subscriptionId = req.query.subscription_id || req.query.sub_id || req.query.id;
@@ -219,7 +218,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 6. Send Push Notification API (Handles Segment & Direct Subscription IDs)
+  // 6. Send Push Notification API
   if (req.method === "POST") {
     try {
       const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
@@ -270,10 +269,15 @@ export default async function handler(req, res) {
           if (btn.text) {
             const btnId = btn.id || `btn_action_${index + 1}`;
             
-            androidButtons.push({
+            // ⭐ FIX: Android native button object me bhi direct URL pass kiya gaya hai
+            const btnObj = {
               id: btnId,
               text: String(btn.text)
-            });
+            };
+            if (btn.url) {
+              btnObj.url = String(btn.url);
+            }
+            androidButtons.push(btnObj);
 
             webButtons.push({
               id: btnId,
