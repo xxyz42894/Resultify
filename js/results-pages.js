@@ -218,7 +218,7 @@ function setupPushCustomizerEvents() {
 
   [
     "pushCustomTitle", "pushCustomBody", "pushCustomBigPicture", 
-    "pushCustomLargeIcon", "pushCustomBtn1Text", "pushCustomBtn1Url", 
+    "pushCustomBtn1Text", "pushCustomBtn1Url", 
     "pushCustomBtn2Text", "pushCustomBtn2Url"
   ].forEach(id => {
     const el = document.getElementById(id);
@@ -412,7 +412,6 @@ function updateStatusCounters() {
   if (elAnn) elAnn.textContent = countAnnounced;
 }
 
-// Filter-Aware Bulk Action Bar Update
 function updateBulkActionBar() {
   const bar = document.getElementById("bulkActionBar");
   const countEl = document.getElementById("selectedItemsCount");
@@ -596,7 +595,7 @@ function render() {
   updateBulkActionBar();
 }
 
-// 8. BULK ACTIONS (Available, Coming Soon & Delete)
+// 8. BULK ACTIONS
 const bulkMakeLiveBtn = document.getElementById("bulkMakeLiveBtn");
 if (bulkMakeLiveBtn) {
   bulkMakeLiveBtn.addEventListener("click", async () => {
@@ -661,7 +660,6 @@ if (bulkDeleteBtn) {
   });
 }
 
-// Filter-Aware Select All Handler
 const selectAllCheckbox = document.getElementById("selectAllCheckbox");
 if (selectAllCheckbox) {
   selectAllCheckbox.addEventListener("change", (e) => {
@@ -676,7 +674,7 @@ if (selectAllCheckbox) {
   });
 }
 
-// 9. MODAL ENGINE (Auto ID + Published logic + Extra Guide)
+// 9. MODAL ENGINE
 const modalSheet = document.getElementById("resultModalSheet");
 function openModal(key = null) {
   editingKey = key;
@@ -694,6 +692,7 @@ function openModal(key = null) {
   const extraToggleText = document.getElementById("extraToggleText");
   const suggestionsBox = document.getElementById("customSuggestionsBox");
 
+  // Reset push state completely
   if (toggle) toggle.checked = false;
   if (container) container.classList.add("hidden");
   if (noOfficialUrlCheckbox) noOfficialUrlCheckbox.checked = false;
@@ -703,7 +702,25 @@ function openModal(key = null) {
   if (extraToggleText) extraToggleText.textContent = "Enable";
   if (suggestionsBox) suggestionsBox.classList.add("hidden");
 
-  // AUTO-INCREMENT INTEGER ID (Highest ID + 1)
+  // Clear push form inputs
+  const pTitle = document.getElementById("pushCustomTitle");
+  const pBody = document.getElementById("pushCustomBody");
+  const pUrl = document.getElementById("pushCustomUrl");
+  const pBigPic = document.getElementById("pushCustomBigPicture");
+  const pB1 = document.getElementById("pushCustomBtn1Text");
+  const pB1U = document.getElementById("pushCustomBtn1Url");
+  const pB2 = document.getElementById("pushCustomBtn2Text");
+  const pB2U = document.getElementById("pushCustomBtn2Url");
+
+  if (pTitle) { pTitle.value = ""; delete pTitle.dataset.touched; }
+  if (pBody) { pBody.value = ""; delete pBody.dataset.touched; }
+  if (pUrl) pUrl.value = "";
+  if (pBigPic) pBigPic.value = "";
+  if (pB1) pB1.value = "Check Result";
+  if (pB1U) pB1U.value = "";
+  if (pB2) pB2.value = "";
+  if (pB2U) pB2U.value = "";
+
   if (!key) {
     let maxId = 0;
     results.forEach(r => {
@@ -864,7 +881,7 @@ if (resultForm) {
         showToast(`Result #${data.id} published to database!`, "success");
       }
 
-         if (toggle && toggle.checked) {
+      if (toggle && toggle.checked) {
         const actionButtons = [];
         if (b1Text) actionButtons.push({ id: "btn_action_1", text: b1Text, url: b1Url || undefined });
         if (b2Text) actionButtons.push({ id: "btn_action_2", text: b2Text, url: b2Url || undefined });
@@ -905,7 +922,6 @@ if (resultForm) {
           showToast(`Push sent via "${selectedChannel}" channel!`, "success");
         }
       }
-
 
       closeModal();
     } catch (err) {
@@ -1118,7 +1134,7 @@ if (startUploadSyncBtn) {
   };
 }
 
-// 12. FILTER PILLS SETUP (Selection auto-cleared on filter switch)
+// 12. FILTER PILLS SETUP
 document.querySelectorAll(".cat-pill").forEach(pill => {
   pill.addEventListener("click", () => {
     document.querySelectorAll(".cat-pill").forEach(p => {
