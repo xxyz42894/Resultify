@@ -63,8 +63,32 @@
           <option value="custom_inactive_threshold">Custom Inactive Users (Itne din se jyada inactive)</option>
           <option value="testing_all">All OneSignal Test Users</option>
           <option value="testing_specific">Specific Test User Selection</option>
+          <option value="custom_subscription_id">Direct Subscription ID (Validate & Target)</option>
         </select>
         <p id="audienceExplanationText" class="text-[10px] font-medium" style="color: var(--text-muted);"></p>
+      </div>
+
+      <!-- CUSTOM SUBSCRIPTION ID VALIDATOR BOX -->
+      <div id="customSubIdContainer" class="hidden p-3 rounded-2xl border space-y-2.5" style="background-color: var(--bg-input); border-color: var(--accent-mint);">
+        <div class="flex items-center justify-between border-b pb-1.5" style="border-color: var(--border-subtle);">
+          <span class="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1" style="color: var(--accent-mint);">
+            <span class="material-symbols-outlined text-16">fingerprint</span>
+            <span>Add by Subscription ID</span>
+          </span>
+          <span id="customSubCountBadge" class="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded" style="background: rgba(4,120,87,0.15); color: var(--accent-mint);">0 Added</span>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <input type="text" id="manualSubIdInput" placeholder="Paste Subscription ID (UUID)..." class="w-full px-2.5 py-2 rounded-xl text-xs font-mono font-bold surface-card border" style="border-color: var(--border-subtle);">
+          <button type="button" id="validateAddSubBtn" class="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 shrink-0 shadow-sm" style="background-color: var(--accent-mint); color: #FFFFFF;">
+            <span class="material-symbols-outlined text-16">add_circle</span>
+            <span>Validate & Add</span>
+          </button>
+        </div>
+
+        <div id="validatedSubList" class="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar pt-1">
+          <p class="text-[10px]" style="color: var(--text-muted);">Enter ID above to fetch device name and target directly.</p>
+        </div>
       </div>
 
       <!-- SMART GHOST DEVICE TOGGLE / INSPECTOR BOX -->
