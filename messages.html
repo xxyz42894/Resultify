@@ -52,7 +52,7 @@
 
   <!-- Notification Analytics Detail Modal (Bottom Sheet) -->
   <div id="messageDetailModal" class="fixed inset-0 z-50 hidden backdrop-blur-sm flex flex-col justify-end bg-black/60">
-    <div class="border-t rounded-t-3xl max-h-[88vh] flex flex-col shadow-2xl animate-sheet-up surface-card p-4 space-y-3" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
+    <div class="border-t rounded-t-3xl max-h-[90vh] flex flex-col shadow-2xl animate-sheet-up surface-card p-4 space-y-3" style="background-color: var(--bg-surface); border-color: var(--border-subtle);">
       <div class="w-10 h-1 rounded-full mx-auto mb-1 shrink-0" style="background-color: var(--border-subtle);"></div>
       
       <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-subtle);">
@@ -67,16 +67,18 @@
 
       <div class="overflow-y-auto space-y-3 text-xs custom-scrollbar pr-1 flex-1">
         <!-- Message Card -->
-        <div class="p-3 rounded-xl bg-black/5 border space-y-1.5" style="border-color: var(--border-subtle);">
+        <div class="p-3 rounded-xl bg-black/5 border space-y-2" style="border-color: var(--border-subtle);">
           <div class="flex items-center justify-between text-[10px]" style="color: var(--text-muted);">
             <span id="detStatusBadge" class="font-bold font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700">COMPLETED</span>
             <span id="detSentTime" class="font-mono">--</span>
           </div>
           <h4 id="detTitle" class="text-sm font-bold" style="color: var(--text-primary);">Message Title</h4>
           <p id="detBody" class="text-[11px]" style="color: var(--text-muted);">Message contents...</p>
-          <div id="detImgWrap" class="hidden rounded-lg overflow-hidden border max-h-32 mt-1" style="border-color: var(--border-subtle);">
+          
+          <div id="detImgWrap" class="hidden rounded-lg overflow-hidden border max-h-40 mt-1" style="border-color: var(--border-subtle);">
             <img id="detImg" src="" class="w-full h-auto object-cover">
           </div>
+          <p id="detImgUrlText" class="hidden text-[9px] font-mono break-all text-cyan-700 pt-0.5 select-all"></p>
         </div>
 
         <!-- 3 Performance Metrics Grid -->
@@ -95,6 +97,15 @@
           </div>
         </div>
 
+        <!-- Action Buttons Analytics Box -->
+        <div id="detButtonsWrap" class="hidden p-3 rounded-xl border surface-card space-y-2" style="border-color: var(--border-subtle);">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider block" style="color: var(--accent-amber);">Notification Action Buttons</span>
+            <span id="detButtonsCountBadge" class="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600">0 Buttons</span>
+          </div>
+          <div id="detButtonsList" class="space-y-2"></div>
+        </div>
+
         <!-- Technical Payload Details -->
         <div class="p-3 rounded-xl border surface-card space-y-1.5" style="border-color: var(--border-subtle);">
           <div class="flex items-center justify-between text-[10px]">
@@ -102,8 +113,16 @@
             <span id="detPlatform" class="font-mono font-bold">Google Android</span>
           </div>
           <div class="flex items-center justify-between text-[10px]">
-            <span style="color: var(--text-muted);">Action URL:</span>
-            <span id="detUrl" class="font-mono font-bold truncate max-w-[200px] text-cyan-700">None (In-App)</span>
+            <span style="color: var(--text-muted);">Target Mode:</span>
+            <span id="detOpenActivity" class="font-mono font-bold text-emerald-700">ExternalLink</span>
+          </div>
+          <div class="flex items-center justify-between text-[10px]">
+            <span style="color: var(--text-muted);">Result ID:</span>
+            <span id="detResultId" class="font-mono font-bold">0</span>
+          </div>
+          <div class="flex items-center justify-between text-[10px]">
+            <span style="color: var(--text-muted);">Main Action URL:</span>
+            <span id="detUrl" class="font-mono font-bold truncate max-w-[200px] text-cyan-700 select-all">None</span>
           </div>
           <div class="flex items-center justify-between text-[10px]">
             <span style="color: var(--text-muted);">Notification UUID:</span>

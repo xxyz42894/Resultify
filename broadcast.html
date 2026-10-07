@@ -19,8 +19,8 @@
         <span class="material-symbols-outlined text-18">arrow_back</span>
       </a>
       <div>
-        <h1 class="text-sm font-bold" style="color: var(--text-primary);">Broadcast & Live Alerts</h1>
-        <p class="text-[10px]" style="color: var(--text-muted);">OneSignal Push & In-App Banner sync</p>
+        <h1 class="text-sm font-bold" style="color: var(--text-primary);">Broadcast Push Alerts</h1>
+        <p class="text-[10px]" style="color: var(--text-muted);">Direct OneSignal Push Dispatcher</p>
       </div>
     </div>
     <a href="templates.html" class="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border surface-card" style="border-color: var(--border-subtle); color: var(--accent-mint);" title="Manage Templates">
@@ -131,7 +131,6 @@
           <span id="rangeResultPreview" class="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded" style="background: rgba(14,116,144,0.15); color: var(--accent-cyan);">0 users</span>
         </div>
 
-        <!-- Range Inputs: From Day X to Day Y -->
         <div id="dualRangeInputs" class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-[10px] font-semibold mb-1" style="color: var(--text-muted);">Min Days Ago (From):</label>
@@ -145,7 +144,6 @@
           </div>
         </div>
 
-        <!-- Inactive Threshold Input -->
         <div id="singleThresholdInput" class="hidden space-y-1">
           <label class="block text-[10px] font-semibold" style="color: var(--text-muted);">Inactive Duration (Din):</label>
           <div class="flex items-center gap-2">
@@ -195,7 +193,6 @@
       <div class="space-y-1.5">
         <label class="block text-[11px] font-bold" style="color: var(--text-muted);">DELIVERY PRIORITY & DISPLAY BEHAVIOR:</label>
         <div class="grid grid-cols-3 gap-2">
-          <!-- 1. Urgent -->
           <label class="flex flex-col p-2 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
             <div class="flex items-center gap-1.5">
               <input type="radio" name="bcPriority" value="urgent" checked class="accent-[#047857]">
@@ -204,7 +201,6 @@
             <span class="text-[9px] mt-1" style="color: var(--text-muted);">Heads-up / Pop on screen</span>
           </label>
 
-          <!-- 2. High -->
           <label class="flex flex-col p-2 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
             <div class="flex items-center gap-1.5">
               <input type="radio" name="bcPriority" value="high" class="accent-[#047857]">
@@ -213,7 +209,6 @@
             <span class="text-[9px] mt-1" style="color: var(--text-muted);">Sound, tray alert only</span>
           </label>
 
-          <!-- 3. Normal -->
           <label class="flex flex-col p-2 rounded-xl cursor-pointer" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
             <div class="flex items-center gap-1.5">
               <input type="radio" name="bcPriority" value="normal" class="accent-[#047857]">
@@ -227,8 +222,51 @@
       <!-- Media & Link Config -->
       <div class="p-3 rounded-xl space-y-2.5" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
         <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-cyan);">Media & Link Config</p>
+        
+        <!-- Target Screen / Activity (Strictly 2 Choices) -->
         <div>
-          <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Click Action URL (Empty = Default App Open)</label>
+          <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">On Click Destination (Target Activity):</label>
+          <select id="bcTargetActivity" class="w-full px-3 py-2 rounded-xl text-xs font-semibold surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+            <option value="ExternalLink" selected>External Link (Browser / YouTube / Default App)</option>
+            <option value="WebViewActivity">In-App WebView (WebViewActivity Portal)</option>
+          </select>
+        </div>
+
+        <!-- Custom Result ID Toggle Container with LIVE RESULT PREVIEW -->
+        <div class="p-2.5 rounded-xl border surface-card space-y-2" style="border-color: var(--border-subtle);">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-bold block" style="color: var(--text-primary);">Attach Specific Result ID</span>
+              <span class="text-[9px]" style="color: var(--text-muted);">Uploaded result se link karein (Default: 0)</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="toggleResultId" class="sr-only banner-toggle">
+              <div class="toggle-track"><div class="toggle-knob"></div></div>
+            </label>
+          </div>
+
+          <div id="bcResultIdContainer" class="hidden pt-1 space-y-2">
+            <div class="relative">
+              <input type="number" id="bcResultId" placeholder="Type Result ID (e.g. 103)..." class="w-full px-3 py-2 rounded-xl text-xs font-mono font-bold surface-card border" style="border-color: var(--border-subtle);">
+              <span id="resultIdCheckingSpinner" class="hidden absolute right-3 top-2.5 material-symbols-outlined text-16 animate-spin text-muted">sync</span>
+            </div>
+
+            <!-- Real-time Result Match Preview Card -->
+            <div id="resultMatchCard" class="hidden p-2.5 rounded-xl border flex items-center justify-between" style="background-color: rgba(4,120,87,0.08); border-color: rgba(4,120,87,0.3);">
+              <div class="min-w-0 flex-1 pr-2">
+                <span class="text-[9px] font-mono font-bold uppercase text-emerald-700 block" id="matchedResultCategory">10TH BOARD</span>
+                <span class="text-xs font-bold truncate block" style="color: var(--text-primary);" id="matchedResultTitle">Result Title Here</span>
+              </div>
+              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 text-white shrink-0">FOUND</span>
+            </div>
+
+            <p class="text-[9px] text-rose-500 hidden" id="resultNotFoundWarning">⚠️ Koi result is ID ke saath database me nahi mila.</p>
+            <p class="text-[9px] text-amber-600">Note: Result ID attach hone par button links bypass hokar direct ResultDetailActivity trigger hogi.</p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Target URL / Portal Link:</label>
           <input type="url" id="bcUrl" placeholder="https://... (Leave blank to just open app)" class="w-full px-3 py-2 rounded-xl text-xs">
         </div>
         <div>
@@ -242,43 +280,15 @@
       </div>
 
       <!-- Action Buttons Config -->
-      <div class="p-3 rounded-xl space-y-2.5" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
+      <div id="actionButtonsSection" class="p-3 rounded-xl space-y-2.5" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
         <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-amber);">Notification Action Buttons (Max 2)</p>
         <div class="grid grid-cols-2 gap-2">
-          <input type="text" id="bcBtn1Text" placeholder="Btn 1 Label (e.g. Check Now)" class="px-2.5 py-1.5 rounded-xl text-xs">
+          <input type="text" id="bcBtn1Text" placeholder="Btn 1 Label (e.g. Click)" class="px-2.5 py-1.5 rounded-xl text-xs">
           <input type="url" id="bcBtn1Url" placeholder="Btn 1 URL" class="px-2.5 py-1.5 rounded-xl text-xs">
         </div>
         <div class="grid grid-cols-2 gap-2">
-          <input type="text" id="bcBtn2Text" placeholder="Btn 2 Label (e.g. Details)" class="px-2.5 py-1.5 rounded-xl text-xs">
+          <input type="text" id="bcBtn2Text" placeholder="Btn 2 Label (e.g. View)" class="px-2.5 py-1.5 rounded-xl text-xs">
           <input type="url" id="bcBtn2Url" placeholder="Btn 2 URL" class="px-2.5 py-1.5 rounded-xl text-xs">
-        </div>
-      </div>
-
-      <!-- App Header Banner Toggles -->
-      <div class="p-3 rounded-xl space-y-2.5" style="background-color: var(--bg-input); border: 1px solid var(--border-subtle);">
-        <p class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-mint);">App Header Announcement Banner</p>
-        <div class="space-y-2 pt-1">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold" style="color: var(--accent-mint);">Pin as App Update Banner</span>
-            <label class="relative inline-flex items-center shrink-0">
-              <input type="checkbox" id="toggleAppUpdate" class="sr-only banner-toggle">
-              <div class="toggle-track"><div class="toggle-knob"></div></div>
-            </label>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold" style="color: var(--accent-amber);">Pin as General Notice Banner</span>
-            <label class="relative inline-flex items-center shrink-0">
-              <input type="checkbox" id="toggleNotice" class="sr-only banner-toggle">
-              <div class="toggle-track"><div class="toggle-knob"></div></div>
-            </label>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold" style="color: var(--accent-rose);">Pin as Critical Bug / Server Down Alert</span>
-            <label class="relative inline-flex items-center shrink-0">
-              <input type="checkbox" id="toggleBug" class="sr-only banner-toggle">
-              <div class="toggle-track"><div class="toggle-knob"></div></div>
-            </label>
-          </div>
         </div>
       </div>
 
@@ -362,13 +372,14 @@
         </button>
       </div>
 
-      <div id="modalTemplatesList" class="flex-1 overflow-y-auto space-y-3 pr-1">
+      <div id="modalTemplatesList" class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
         <p class="text-xs text-center py-4" style="color: var(--text-muted);">Loading presets...</p>
       </div>
 
-      <div class="pt-2 border-t flex justify-end" style="border-color: var(--border-subtle);">
+      <div class="pt-2 border-t flex items-center justify-between" style="border-color: var(--border-subtle);">
+        <span class="text-[10px] text-muted">Select to auto-fill</span>
         <a href="templates.html" class="text-xs font-bold flex items-center gap-1" style="color: var(--accent-mint);">
-          <span>Open Full Templates Manager</span>
+          <span>Manage / Add Presets</span>
           <span class="material-symbols-outlined text-14">arrow_forward</span>
         </a>
       </div>
