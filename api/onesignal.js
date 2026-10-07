@@ -260,7 +260,18 @@ export default async function handler(req, res) {
       const mode = parsedBody.priority_mode || (Number(parsedBody.priority) === 5 ? "normal" : "urgent");
       const targetChannel = parsedBody.existing_android_channel_id || (mode === "urgent" ? "Urgent" : "Result Alerts");
 
-      const buttonUrlsData = {};
+      // Build a clean, allow-listed data object. Never let deprecated routing keys
+      // (body_url / targetUrl) re-enter the OneSignal payload through data.
+      const incomingData = (parsedBody.data && typeof parsedBody.data === "object")
+        ? { ...parsedBody.data }
+        : {};
+      delete incomingData.body_url;
+      delete incomingData.targetUrl;
+      delete incomingData.bodyUrl;
+      delete incomingData.bannerType;
+
+      // Action Buttons & Web Buttons Processing. Native Android buttons intentionally
+      // contain only id/text. URLs live in web_buttons and data.btn_action_X_url.
       const androidButtons = [];
       const webButtons = [];
 
@@ -269,44 +280,39 @@ export default async function handler(req, res) {
           if (btn.text) {
             const btnId = btn.id || `btn_action_${index + 1}`;
             
-            // ⭐ FIX: Android native button object me bhi direct URL pass kiya gaya hai
-            const btnObj = {
+            // 1. Android button: sirf id aur text
+            androidButtons.push({
+              id: btnId,
+              text: String(btn.text)
+            });
+
+            // 2. Web button: id, text, aur direct url jo data ya button me ho
+            const candidateUrl = btn.url || incomingData[`${btnId}_url`] || incomingData[`btn_action_${index + 1}_url`];
+            const buttonUrl = typeof candidateUrl === "string" && /^https?:\/\//i.test(candidateUrl.trim())
+              ? candidateUrl.trim()
+              : "";
+            const webBtnObj = {
               id: btnId,
               text: String(btn.text)
             };
-            if (btn.url) {
-              btnObj.url = String(btn.url);
+            if (buttonUrl) {
+              webBtnObj.url = buttonUrl;
+              incomingData[`${btnId}_url`] = buttonUrl;
+              incomingData[`btn_action_${index + 1}_url`] = buttonUrl;
             }
-            androidButtons.push(btnObj);
-
-            webButtons.push({
-              id: btnId,
-              text: String(btn.text),
-              url: btn.url || undefined
-            });
-
-            if (btn.url) {
-              buttonUrlsData[`${btnId}_url`] = String(btn.url);
-              buttonUrlsData[`btn_action_${index + 1}_url`] = String(btn.url);
-            }
+            webButtons.push(webBtnObj);
           }
         });
       }
 
-      if (parsedBody.url) {
-        buttonUrlsData["body_url"] = String(parsedBody.url);
-      }
-
+      // Payload Construction: URLs stay in data/main url and web_buttons; native buttons contain only id/text.
       const oneSignalPayload = {
         app_id: ONESIGNAL_APP_ID,
         target_channel: "push",
         headings: { en: String(titleText) },
         contents: { en: String(bodyText) },
         existing_android_channel_id: targetChannel,
-        data: {
-          ...(parsedBody.data || {}),
-          ...buttonUrlsData
-        }
+        data: incomingData
       };
 
       if (Array.isArray(includedSegments) && includedSegments.length > 0) {
@@ -315,8 +321,10 @@ export default async function handler(req, res) {
         oneSignalPayload.include_subscription_ids = targets;
       }
 
-      if (parsedBody.url && androidButtons.length === 0) {
-        oneSignalPayload.url = String(parsedBody.url);
+      if (typeof parsedBody.url === "string" && /^https?:\/\//i.test(parsedBody.url.trim())) {
+        oneSignalPayload.url = parsedBody.url.trim();
+        // Keep the canonical main URL available to the Android click router.
+        oneSignalPayload.data.url = parsedBody.url.trim();
       }
 
       if (mode === "urgent") {
@@ -335,8 +343,12 @@ export default async function handler(req, res) {
         oneSignalPayload.android_visibility = 0;
       }
 
-      if (parsedBody.big_picture || parsedBody.imageUrl) oneSignalPayload.big_picture = String(parsedBody.big_picture || parsedBody.imageUrl);
-      if (parsedBody.large_icon || parsedBody.largeIcon) oneSignalPayload.large_icon = String(parsedBody.large_icon || parsedBody.largeIcon);
+      if (parsedBody.big_picture || parsedBody.imageUrl) {
+        oneSignalPayload.big_picture = String(parsedBody.big_picture || parsedBody.imageUrl);
+      }
+      if (parsedBody.large_icon || parsedBody.largeIcon) {
+        oneSignalPayload.large_icon = String(parsedBody.large_icon || parsedBody.largeIcon);
+      }
       
       if (androidButtons.length > 0) {
         oneSignalPayload.buttons = androidButtons;
