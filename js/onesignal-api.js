@@ -1,4 +1,3 @@
-// OneSignal API Client Bridge
 const VERCEL_BACKEND_URL = "https://resultify-psi.vercel.app";
 
 async function callOneSignalApi(endpoint, options = {}) {
@@ -70,7 +69,23 @@ export async function getOneSignalNotifications(offset = 0) {
   }
 }
 
-// Exactly calls Notification Delete by UUID (without asking for subscription_id)
+// Live Single Notification Fetcher (Fetches exact real-time click & delivery counts)
+export async function getOneSignalNotificationDetail(notificationId) {
+  try {
+    const res = await callOneSignalApi(`action=notification_detail&notification_id=${notificationId}`);
+    return {
+      success: true,
+      notification: res.notification || null
+    };
+  } catch (error) {
+    return {
+      success: false,
+      notification: null,
+      error: error.message
+    };
+  }
+}
+
 export async function cancelOneSignalNotification(notificationUuid) {
   try {
     const res = await callOneSignalApi(`action=delete_notification&notification_id=${notificationUuid}`, {
@@ -109,12 +124,11 @@ export async function getOneSignalSubscribers() {
   }
 }
 
-// Exactly passes subscriptionId for device subscriber deletion
 export async function deleteOneSignalSubscriber(subscriptionId) {
   try {
     const res = await callOneSignalApi(`action=delete_subscription&subscription_id=${subscriptionId}`, {
       method: "POST",
-      body: JSON.stringify({ subscriptionId: subscriptionId })
+      body: JSON.stringify({ subscriptionId })
     });
     return {
       success: Boolean(res.success),
@@ -160,11 +174,15 @@ export async function sendResultPushNotification(result, customTitle, customBody
   const title = customTitle || result?.title || "New Result Available";
   const body = customBody || (result?.description?.substring(0, 150) || "Tap to check your result now!");
   const data = {
-    resultId: String(result?.id || ""),
+    resultId: parseInt(result?.id) || 0,
     category: result?.category || "",
-    openActivity: result?.openActivity || "ResultDetailActivity",
-    url: result?.url || ""
+    openActivity: "ResultDetailActivity"
   };
+
+  if (result?.url) {
+    data.url = String(result.url);
+  }
+
   return sendPushNotification({
     target_channel: "push",
     headings: { en: String(title) },

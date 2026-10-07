@@ -26,7 +26,7 @@ const prevB2 = document.getElementById("prevB2");
 const listContainer = document.getElementById("templatesListContainer");
 const tplCountBadge = document.getElementById("tplCountBadge");
 
-// Clean Presets
+// DEFAULT 6 CLEAN PRESETS (Pure Push Standard)
 export const DEFAULT_TEMPLATES = [
   {
     id: "def_bpsc_result",
@@ -114,9 +114,14 @@ export const DEFAULT_TEMPLATES = [
   }
 ];
 
-function safeHttpUrl(value) {
-  const url = String(value || "").trim();
-  return /^https?:\/\//i.test(url) ? url : "";
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function showToast(msg, type = "info") {
@@ -179,7 +184,7 @@ function updateLivePreview() {
 });
 document.querySelectorAll('input[name="tplPriority"]').forEach(r => r.addEventListener("change", updateLivePreview));
 
-// 2. FETCH ALL TEMPLATES
+// 2. FETCH ALL TEMPLATES (BUILT-IN + FIREBASE RTDB)
 export async function getAllTemplates() {
   const combined = [...DEFAULT_TEMPLATES];
   try {
@@ -195,7 +200,7 @@ export async function getAllTemplates() {
   return combined;
 }
 
-// 3. RENDER SAVED LIST
+// 3. RENDER SAVED LIST (Safe & Crash-Free Loop)
 async function renderTemplatesList() {
   if (!listContainer) return;
   listContainer.innerHTML = '<p class="text-xs text-center py-4" style="color:var(--text-muted);">Loading templates...</p>';
@@ -214,17 +219,21 @@ async function renderTemplatesList() {
       ? "background:rgba(4,120,87,0.15); color:var(--accent-mint);" 
       : (t.priority === "high" ? "background:rgba(180,83,9,0.15); color:var(--accent-amber);" : "background:rgba(74,93,110,0.15); color:var(--text-muted);");
 
+    const imgTag = t.image && t.image.trim()
+      ? `<div class="mt-1.5 max-h-24 overflow-hidden rounded"><img src="${escapeHtml(t.image.trim())}" class="w-full h-auto object-cover" /></div>`
+      : "";
+
     card.innerHTML = `
       <div class="flex items-start justify-between gap-2">
         <div>
-          <h4 class="text-xs font-bold" style="color:var(--text-primary);">${escapeHtml(t.name)}</h4>
+          <h4 class="text-xs font-bold" style="color:var(--text-primary);">${escapeHtml(t.name || "Template")}</h4>
           <div class="flex items-center gap-2 mt-1">
-            <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase" style="${badgeColor}">${t.priority}</span>
+            <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase" style="${badgeColor}">${escapeHtml(t.priority || "urgent")}</span>
             ${t.isDefault ? `<span class="text-[9px] font-bold text-gray-500">DEFAULT</span>` : ''}
           </div>
         </div>
         ${!t.isDefault ? `
-          <button data-del="${escapeHtml(t.id)}" class="text-rose-500 hover:text-rose-700 p-1" title="Delete Template">
+          <button data-del="${escapeHtml(t.id)}" class="delTplBtn text-rose-500 hover:text-rose-700 p-1" title="Delete Template">
             <span class="material-symbols-outlined text-16">delete</span>
           </button>
         ` : ''}
@@ -232,9 +241,9 @@ async function renderTemplatesList() {
 
       <!-- Preview Box -->
       <div class="p-2.5 rounded-xl border bg-black/5 text-[11px] space-y-1" style="border-color:var(--border-subtle);">
-        <p class="font-bold text-xs" style="color:var(--text-primary);">${escapeHtml(t.title)}</p>
-        <p class="line-clamp-2" style="color:var(--text-muted);">${escapeHtml(t.body)}</p>
-        ${safeHttpUrl(t.image) ? `<div class="mt-1.5 max-h-24 overflow-hidden rounded"><img src="${escapeHtml(safeHttpUrl(t.image))}" class="w-full h-auto object-cover" /></div>` : ''}
+        <p class="font-bold text-xs" style="color:var(--text-primary);">${escapeHtml(t.title || "")}</p>
+        <p class="line-clamp-2" style="color:var(--text-muted);">${escapeHtml(t.body || "")}</p>
+        ${imgTag}
         ${(t.btn1Text || t.btn2Text) ? `
           <div class="flex gap-2 pt-1">
             ${t.btn1Text ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded surface-card border" style="color:var(--accent-mint);">${escapeHtml(t.btn1Text)}</span>` : ''}
@@ -244,30 +253,29 @@ async function renderTemplatesList() {
       </div>
 
       <!-- Use Button -->
-      <button data-use="${escapeHtml(t.id)}" class="w-full py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm" style="background-color:rgba(4,120,87,0.15); color:var(--accent-mint); border:1px solid rgba(4,120,87,0.3);">
+      <button data-use="${escapeHtml(t.id)}" class="useTplBtn w-full py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm" style="background-color:rgba(4,120,87,0.15); color:var(--accent-mint); border:1px solid rgba(4,120,87,0.3);">
         <span class="material-symbols-outlined text-16">check_circle</span>
-        <span>Use Me / Select Me</span>
+        <span>Use This Preset</span>
       </button>
     `;
 
     // Delete Event
-    const delBtn = card.querySelector(`[data-del="${escapeHtml(t.id)}"]`);
+    const delBtn = card.querySelector(".delTplBtn");
     if (delBtn) {
-      delBtn.addEventListener("click", async () => {
-        if (confirm(`Delete "${escapeHtml(t.name)}" template?`)) {
-          await remove(ref(database, `push_templates/${escapeHtml(t.id)}`));
+      delBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (confirm(`Delete "${t.name}" template?`)) {
+          await remove(ref(database, `push_templates/${t.id}`));
           showToast("Template deleted successfully", "success");
           renderTemplatesList();
         }
       });
     }
 
-    // Use Me Event -> Saves clean data to sessionStorage & redirects
-    const useBtn = card.querySelector(`[data-use="${escapeHtml(t.id)}"]`);
+    // Use Button Event
+    const useBtn = card.querySelector(".useTplBtn");
     if (useBtn) {
       useBtn.addEventListener("click", () => {
-        // Whitelist only the current template schema. Legacy bannerType/body_url/
-        // targetUrl fields are intentionally discarded and can never reach broadcast.html.
         const cleanTpl = {
           name: String(t.name || ""),
           title: String(t.title || ""),

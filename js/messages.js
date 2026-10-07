@@ -1,4 +1,4 @@
-import { getOneSignalNotifications, cancelOneSignalNotification } from "./onesignal-api.js";
+import { getOneSignalNotifications, getOneSignalNotificationDetail, cancelOneSignalNotification } from "./onesignal-api.js";
 
 const listFeed = document.getElementById("messagesListFeed");
 const searchInput = document.getElementById("searchMsgInput");
@@ -82,12 +82,13 @@ function getPlatformStats(item) {
 
 function getNotificationMetrics(item) {
   const platform = getPlatformStats(item);
-  const successful = Number(
+
+  const delivered = Number(
     item?.successful ??
+    item?.received ??
     platform?.successful ??
     platform?.delivered ??
     platform?.received ??
-    item?.received ??
     item?.recipients ??
     0
   );
@@ -102,7 +103,7 @@ function getNotificationMetrics(item) {
   );
 
   return {
-    delivered: Number.isFinite(successful) ? successful : 0,
+    delivered: Number.isFinite(delivered) ? delivered : 0,
     clicks: Number.isFinite(clicks) ? clicks : 0
   };
 }
@@ -217,15 +218,16 @@ function render() {
   });
 }
 
-function openModal(item) {
+async function openModal(item) {
   if (!modal) return;
   activeNotificationBeingViewed = item;
 
   const title = extractTitle(item);
   const body = extractBody(item);
 
-  const { delivered, clicks } = getNotificationMetrics(item);
-  const ctr = delivered > 0 ? ((clicks / delivered) * 100).toFixed(1) : "0.0";
+  // Initial populate using available data
+  let { delivered, clicks } = getNotificationMetrics(item);
+  let ctr = delivered > 0 ? ((clicks / delivered) * 100).toFixed(1) : "0.0";
   const sentDate = formatDate(item.completed_at || item.send_after || item.queued_at);
 
   if (detTitle) detTitle.textContent = title;
@@ -236,7 +238,6 @@ function openModal(item) {
   if (detCtrVal) detCtrVal.textContent = `${ctr}%`;
   if (detPlatform) detPlatform.textContent = item.platform || "Google Android";
 
-  // Data fields extraction
   const data = item.data || (item.custom && typeof item.custom === 'object' ? item.custom.a : {}) || {};
   const mainUrl = item.url || data.url || "";
   if (detUrl) {
@@ -247,7 +248,6 @@ function openModal(item) {
   if (detResultId) detResultId.textContent = data.resultId ?? 0;
   if (detId) detId.textContent = item.id || "--";
 
-  // Big Picture Image Handling
   const pic = item.big_picture || item.global_image || item.chrome_web_image || data.big_picture;
   if (pic && detImgWrap && detImg) {
     detImg.src = pic;
@@ -261,10 +261,8 @@ function openModal(item) {
     if (detImgUrlText) detImgUrlText.classList.add("hidden");
   }
 
-  // ⭐ FULL ACTION BUTTONS DETECTOR (Checks web_buttons, buttons AND data dictionary)
+  // Buttons Inspection
   const buttonsToDisplay = [];
-
-  // Check 1: Root web_buttons ya buttons array
   const rawButtons = item.web_buttons || item.buttons || [];
   if (Array.isArray(rawButtons) && rawButtons.length > 0) {
     rawButtons.forEach((b, idx) => {
@@ -278,25 +276,15 @@ function openModal(item) {
     });
   }
 
-  // Check 2: Fallback agar OneSignal ne buttons strip kar diye ho par data me URL ho
   if (buttonsToDisplay.length === 0) {
     if (data.btn_action_1_url) {
-      buttonsToDisplay.push({
-        id: "btn_action_1",
-        text: "Action Button 1",
-        url: data.btn_action_1_url
-      });
+      buttonsToDisplay.push({ id: "btn_action_1", text: "Action Button 1", url: data.btn_action_1_url });
     }
     if (data.btn_action_2_url) {
-      buttonsToDisplay.push({
-        id: "btn_action_2",
-        text: "Action Button 2",
-        url: data.btn_action_2_url
-      });
+      buttonsToDisplay.push({ id: "btn_action_2", text: "Action Button 2", url: data.btn_action_2_url });
     }
   }
 
-  // Display Action Buttons in UI
   if (detButtonsWrap && detButtonsList) {
     if (buttonsToDisplay.length > 0) {
       detButtonsList.innerHTML = "";
@@ -337,6 +325,28 @@ function openModal(item) {
   }
 
   modal.classList.remove("hidden");
+
+  // Live Single Message Real-Time Fetch (OneSignal View Message API)
+  if (item.id) {
+    try {
+      const freshRes = await getOneSignalNotificationDetail(item.id);
+      if (freshRes.success && freshRes.notification && activeNotificationBeingViewed?.id === item.id) {
+        const freshItem = freshRes.notification;
+        const freshMetrics = getNotificationMetrics(freshItem);
+        const freshCtr = freshMetrics.delivered > 0 ? ((freshMetrics.clicks / freshMetrics.delivered) * 100).toFixed(1) : "0.0";
+
+        if (detDeliveredVal) detDeliveredVal.textContent = freshMetrics.delivered;
+        if (detClicksVal) detClicksVal.textContent = freshMetrics.clicks;
+        if (detCtrVal) detCtrVal.textContent = `${freshCtr}%`;
+
+        // Update in-memory item so list cards stay in sync
+        item.successful = freshItem.successful;
+        item.received = freshItem.received;
+        item.converted = freshItem.converted;
+        item.platform_delivery_stats = freshItem.platform_delivery_stats;
+      }
+    } catch (ignored) {}
+  }
 }
 
 function closeModal() {
@@ -399,6 +409,4 @@ if (refreshBtn) {
   refreshBtn.onclick = loadNotifications;
 }
 
-// Initial Run
 loadNotifications();
- 
