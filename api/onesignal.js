@@ -19,7 +19,6 @@ export default async function handler(req, res) {
   }
 
   const authHeader = `Key ${ONESIGNAL_REST_API_KEY}`;
-
   const action = (req.query.action || "").toLowerCase().trim();
   const limit = req.query.limit || 50;
   const offset = req.query.offset || 0;
@@ -50,7 +49,34 @@ export default async function handler(req, res) {
     }
   }
 
-  // 2. Notifications History API
+  // 2. Single Notification Live Analytics API (Fresh Real-Time Clicks & Delivery)
+  if (req.method === "GET" && (action === "notification_detail" || action === "view_message")) {
+    try {
+      const notificationId = req.query.notification_id || req.query.id;
+      if (!notificationId) {
+        return res.status(400).json({ success: false, error: "Notification ID missing hai." });
+      }
+
+      const targetApiUrl = `https://api.onesignal.com/notifications/${notificationId}?app_id=${ONESIGNAL_APP_ID}`;
+      const response = await fetch(targetApiUrl, {
+        method: "GET",
+        headers: {
+          "Authorization": authHeader,
+          "Content-Type": "application/json"
+        }
+      });
+      const data = await response.json();
+      return res.status(response.status).json({
+        success: response.ok,
+        statusCode: response.status,
+        notification: data
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, statusCode: 500, error: err.message });
+    }
+  }
+
+  // 3. Notifications History List API
   if (req.method === "GET" && (action === "notifications" || action === "messages")) {
     try {
       const targetApiUrl = `https://api.onesignal.com/notifications?app_id=${ONESIGNAL_APP_ID}&limit=${limit}&offset=${offset}`;
@@ -73,7 +99,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 3. Subscribers List API
+  // 4. Subscribers List API
   if (req.method === "GET" && (action === "subscribers" || action === "players")) {
     try {
       const response = await fetch(`https://api.onesignal.com/players?app_id=${ONESIGNAL_APP_ID}&limit=3000`, {
@@ -95,7 +121,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // 4. Message / Notification Delete API
+  // 5. Message Delete API
   if (action === "delete_notification" || action === "delete_message" || action === "cancel_notification") {
     try {
       let notificationId = req.query.notification_id || req.query.id;
@@ -113,7 +139,6 @@ export default async function handler(req, res) {
       }
 
       const targetUrl = `https://api.onesignal.com/notifications/${notificationId}?app_id=${ONESIGNAL_APP_ID}`;
-
       const response = await fetch(targetUrl, {
         method: "DELETE",
         headers: {
@@ -134,7 +159,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
           success: true,
           statusCode: 200,
-          message: "Notification successfully deleted from OneSignal.",
+          message: "Notification successfully deleted.",
           data: resData
         });
       }
@@ -147,17 +172,12 @@ export default async function handler(req, res) {
         errors: resData.errors || [errorMsg],
         data: resData
       });
-
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        statusCode: 500,
-        error: "Server Error: " + err.message
-      });
+      return res.status(500).json({ success: false, statusCode: 500, error: "Server Error: " + err.message });
     }
   }
 
-  // 5. Subscription Delete API
+  // 6. Subscription Delete API
   if (action === "delete_subscription") {
     try {
       let subscriptionId = req.query.subscription_id || req.query.sub_id || req.query.id;
@@ -175,7 +195,6 @@ export default async function handler(req, res) {
       }
 
       const targetUrl = `https://api.onesignal.com/apps/${ONESIGNAL_APP_ID}/subscriptions/${subscriptionId}`;
-
       const response = await fetch(targetUrl, {
         method: "DELETE",
         headers: {
@@ -208,17 +227,12 @@ export default async function handler(req, res) {
         error: errorMsg,
         data: resData
       });
-
     } catch (err) {
-      return res.status(500).json({
-        success: false,
-        statusCode: 500,
-        error: "Server Error: " + err.message
-      });
+      return res.status(500).json({ success: false, statusCode: 500, error: "Server Error: " + err.message });
     }
   }
 
-  // 6. Send Push Notification API
+  // 7. Send Push Notification API
   if (req.method === "POST") {
     try {
       const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
@@ -260,33 +274,24 @@ export default async function handler(req, res) {
       const mode = parsedBody.priority_mode || (Number(parsedBody.priority) === 5 ? "normal" : "urgent");
       const targetChannel = parsedBody.existing_android_channel_id || (mode === "urgent" ? "Urgent" : "Result Alerts");
 
-      // Build a clean, allow-listed data object. Never let deprecated routing keys
-      // (body_url / targetUrl) re-enter the OneSignal payload through data.
-      const incomingData = (parsedBody.data && typeof parsedBody.data === "object")
-        ? { ...parsedBody.data }
-        : {};
+      const androidButtons = [];
+      const webButtons = [];
+      const incomingData = { ...(parsedBody.data || {}) };
+
       delete incomingData.body_url;
       delete incomingData.targetUrl;
       delete incomingData.bodyUrl;
       delete incomingData.bannerType;
 
-      // Action Buttons & Web Buttons Processing. Native Android buttons intentionally
-      // contain only id/text. URLs live in web_buttons and data.btn_action_X_url.
-      const androidButtons = [];
-      const webButtons = [];
-
       if (parsedBody.buttons && Array.isArray(parsedBody.buttons)) {
         parsedBody.buttons.forEach((btn, index) => {
           if (btn.text) {
             const btnId = btn.id || `btn_action_${index + 1}`;
-            
-            // 1. Android button: sirf id aur text
             androidButtons.push({
               id: btnId,
               text: String(btn.text)
             });
 
-            // 2. Web button: id, text, aur direct url jo data ya button me ho
             const candidateUrl = btn.url || incomingData[`${btnId}_url`] || incomingData[`btn_action_${index + 1}_url`];
             const buttonUrl = typeof candidateUrl === "string" && /^https?:\/\//i.test(candidateUrl.trim())
               ? candidateUrl.trim()
@@ -305,7 +310,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Payload Construction: URLs stay in data/main url and web_buttons; native buttons contain only id/text.
       const oneSignalPayload = {
         app_id: ONESIGNAL_APP_ID,
         target_channel: "push",
@@ -323,7 +327,6 @@ export default async function handler(req, res) {
 
       if (typeof parsedBody.url === "string" && /^https?:\/\//i.test(parsedBody.url.trim())) {
         oneSignalPayload.url = parsedBody.url.trim();
-        // Keep the canonical main URL available to the Android click router.
         oneSignalPayload.data.url = parsedBody.url.trim();
       }
 
