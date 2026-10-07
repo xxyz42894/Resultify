@@ -23,6 +23,12 @@ const detUrl = document.getElementById("detUrl");
 const detId = document.getElementById("detId");
 const detImgWrap = document.getElementById("detImgWrap");
 const detImg = document.getElementById("detImg");
+const detImgUrlText = document.getElementById("detImgUrlText");
+const detOpenActivity = document.getElementById("detOpenActivity");
+const detResultId = document.getElementById("detResultId");
+const detButtonsWrap = document.getElementById("detButtonsWrap");
+const detButtonsList = document.getElementById("detButtonsList");
+const detButtonsCountBadge = document.getElementById("detButtonsCountBadge");
 
 let allNotifications = [];
 let query = "";
@@ -33,7 +39,9 @@ function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function showToast(message, type = "info") {
@@ -64,6 +72,39 @@ function formatDate(timestampSec) {
     minute: "2-digit",
     hour12: true
   });
+}
+
+function getPlatformStats(item) {
+  const stats = item?.platform_delivery_stats;
+  if (!stats || typeof stats !== "object") return {};
+  return stats.android || stats.Android || stats.all || {};
+}
+
+function getNotificationMetrics(item) {
+  const platform = getPlatformStats(item);
+  const successful = Number(
+    item?.successful ??
+    platform?.successful ??
+    platform?.delivered ??
+    platform?.received ??
+    item?.received ??
+    item?.recipients ??
+    0
+  );
+
+  const clicks = Number(
+    item?.converted ??
+    platform?.converted ??
+    platform?.clicks ??
+    platform?.clicked ??
+    item?.clicks ??
+    0
+  );
+
+  return {
+    delivered: Number.isFinite(successful) ? successful : 0,
+    clicks: Number.isFinite(clicks) ? clicks : 0
+  };
 }
 
 function extractTitle(item) {
@@ -133,8 +174,7 @@ function render() {
     const title = extractTitle(item);
     const body = extractBody(item);
 
-    const delivered = item.successful ?? (item.received ?? (item.recipients ?? 0));
-    const clicks = item.converted ?? 0;
+    const { delivered, clicks } = getNotificationMetrics(item);
     const sentDate = formatDate(item.completed_at || item.send_after || item.queued_at);
 
     card.innerHTML = `
@@ -157,7 +197,7 @@ function render() {
           <span>Tap to view detailed analytics</span>
           <span class="material-symbols-outlined text-14">arrow_forward</span>
         </span>
-        <button type="button" class="quickDeleteBtn text-rose-500 font-bold p-1 hover:underline flex items-center gap-0.5" data-id="${item.id}">
+        <button type="button" class="quickDeleteBtn text-rose-500 font-bold p-1 hover:underline flex items-center gap-0.5" data-id="${escapeHtml(item.id)}">
           <span class="material-symbols-outlined text-14">delete</span>
           <span>Delete</span>
         </button>
@@ -184,9 +224,8 @@ function openModal(item) {
   const title = extractTitle(item);
   const body = extractBody(item);
 
-  const delivered = item.successful ?? (item.received ?? (item.recipients ?? 0));
-  const clicks = item.converted ?? 0;
-  const ctr = delivered > 0 ? ((clicks / delivered) * 100).toFixed(1) : 0;
+  const { delivered, clicks } = getNotificationMetrics(item);
+  const ctr = delivered > 0 ? ((clicks / delivered) * 100).toFixed(1) : "0.0";
   const sentDate = formatDate(item.completed_at || item.send_after || item.queued_at);
 
   if (detTitle) detTitle.textContent = title;
@@ -196,15 +235,105 @@ function openModal(item) {
   if (detClicksVal) detClicksVal.textContent = clicks;
   if (detCtrVal) detCtrVal.textContent = `${ctr}%`;
   if (detPlatform) detPlatform.textContent = item.platform || "Google Android";
-  if (detUrl) detUrl.textContent = item.url || item.data?.url || item.data?.body_url || "In-App Open";
+
+  // Data fields extraction
+  const data = item.data || (item.custom && typeof item.custom === 'object' ? item.custom.a : {}) || {};
+  const mainUrl = item.url || data.url || "";
+  if (detUrl) {
+    detUrl.textContent = mainUrl || "None (Default App Open)";
+    detUrl.title = mainUrl;
+  }
+  if (detOpenActivity) detOpenActivity.textContent = data.openActivity || "ExternalLink";
+  if (detResultId) detResultId.textContent = data.resultId ?? 0;
   if (detId) detId.textContent = item.id || "--";
 
-  const pic = item.big_picture || item.global_image || item.chrome_web_image || item.data?.big_picture;
+  // Big Picture Image Handling
+  const pic = item.big_picture || item.global_image || item.chrome_web_image || data.big_picture;
   if (pic && detImgWrap && detImg) {
     detImg.src = pic;
     detImgWrap.classList.remove("hidden");
-  } else if (detImgWrap) {
-    detImgWrap.classList.add("hidden");
+    if (detImgUrlText) {
+      detImgUrlText.textContent = pic;
+      detImgUrlText.classList.remove("hidden");
+    }
+  } else {
+    if (detImgWrap) detImgWrap.classList.add("hidden");
+    if (detImgUrlText) detImgUrlText.classList.add("hidden");
+  }
+
+  // ⭐ FULL ACTION BUTTONS DETECTOR (Checks web_buttons, buttons AND data dictionary)
+  const buttonsToDisplay = [];
+
+  // Check 1: Root web_buttons ya buttons array
+  const rawButtons = item.web_buttons || item.buttons || [];
+  if (Array.isArray(rawButtons) && rawButtons.length > 0) {
+    rawButtons.forEach((b, idx) => {
+      const btnId = b.id || `btn_action_${idx + 1}`;
+      const btnUrl = b.url || data[`${btnId}_url`] || data[`btn_action_${idx + 1}_url`] || "";
+      buttonsToDisplay.push({
+        id: btnId,
+        text: b.text || `Action ${idx + 1}`,
+        url: btnUrl
+      });
+    });
+  }
+
+  // Check 2: Fallback agar OneSignal ne buttons strip kar diye ho par data me URL ho
+  if (buttonsToDisplay.length === 0) {
+    if (data.btn_action_1_url) {
+      buttonsToDisplay.push({
+        id: "btn_action_1",
+        text: "Action Button 1",
+        url: data.btn_action_1_url
+      });
+    }
+    if (data.btn_action_2_url) {
+      buttonsToDisplay.push({
+        id: "btn_action_2",
+        text: "Action Button 2",
+        url: data.btn_action_2_url
+      });
+    }
+  }
+
+  // Display Action Buttons in UI
+  if (detButtonsWrap && detButtonsList) {
+    if (buttonsToDisplay.length > 0) {
+      detButtonsList.innerHTML = "";
+      if (detButtonsCountBadge) {
+        detButtonsCountBadge.textContent = `${buttonsToDisplay.length} Button${buttonsToDisplay.length > 1 ? 's' : ''}`;
+      }
+
+      buttonsToDisplay.forEach((b) => {
+        const bDiv = document.createElement("div");
+        bDiv.className = "p-2.5 rounded-xl bg-black/5 border space-y-1";
+        bDiv.style.borderColor = "var(--border-subtle)";
+
+        bDiv.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="material-symbols-outlined text-14 text-amber-600">smart_button</span>
+              <span class="font-bold text-xs truncate" style="color:var(--text-primary);">${escapeHtml(b.text)}</span>
+            </div>
+            <span class="font-mono text-[9px] px-1.5 py-0.2 rounded font-bold bg-black/10 text-muted">${escapeHtml(b.id)}</span>
+          </div>
+          <div class="pt-0.5">
+            ${b.url ? `
+              <div class="flex items-center gap-1 text-[10px]">
+                <span class="font-semibold text-muted shrink-0">Action Link:</span>
+                <a href="${escapeHtml(b.url)}" target="_blank" rel="noopener noreferrer" class="font-mono text-[10px] text-cyan-600 hover:underline truncate select-all block">${escapeHtml(b.url)}</a>
+              </div>
+            ` : `
+              <span class="text-[10px] font-mono text-muted italic">No URL (Opens App Default)</span>
+            `}
+          </div>
+        `;
+        detButtonsList.appendChild(bDiv);
+      });
+      detButtonsWrap.classList.remove("hidden");
+    } else {
+      detButtonsWrap.classList.add("hidden");
+    }
   }
 
   modal.classList.remove("hidden");
@@ -215,7 +344,6 @@ function closeModal() {
   activeNotificationBeingViewed = null;
 }
 
-// Real OneSignal DELETE Handler
 async function triggerDeleteNotification(item) {
   if (!item || !item.id) return;
 
@@ -233,7 +361,6 @@ async function triggerDeleteNotification(item) {
 
     if (res.success) {
       showToast(`Message "${title}" has been deleted from OneSignal.`, "success");
-      // Direct OneSignal Database se wapas fetch karke verify aur refresh karein
       await loadNotifications();
       closeModal();
     } else {
@@ -274,3 +401,4 @@ if (refreshBtn) {
 
 // Initial Run
 loadNotifications();
+ 

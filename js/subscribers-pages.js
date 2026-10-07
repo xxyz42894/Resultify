@@ -34,16 +34,43 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.remove(), 4000);
 }
 
-function formatRelativeTime(sec) {
+// OneSignal may return timestamps as Unix seconds, Unix milliseconds, numeric
+// strings, or ISO-8601 strings. Normalize every form to Unix seconds first.
+function normalizeTimestamp(value) {
+  if (value === null || value === undefined || value === "") return 0;
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return numeric > 10000000000 ? numeric / 1000 : numeric;
+    }
+
+    const parsed = Date.parse(trimmed);
+    return Number.isFinite(parsed) ? parsed / 1000 : 0;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value > 10000000000 ? value / 1000 : value;
+  }
+
+  return 0;
+}
+
+function formatRelativeTime(value) {
+  const sec = normalizeTimestamp(value);
   if (!sec) return "Never";
-  const diff = Math.floor(Date.now() / 1000 - sec);
+  const diff = Math.max(0, Math.floor(Date.now() / 1000 - sec));
   if (diff < 60) return "Just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function formatDateTime(timestampSec) {
+function formatDateTime(value) {
+  const timestampSec = normalizeTimestamp(value);
   if (!timestampSec) return "N/A";
   const d = new Date(timestampSec * 1000);
   return d.toLocaleString("en-IN", {
@@ -152,7 +179,7 @@ function applyFiltersAndRender() {
     // Agar ek hi key ke 2 ya zyada devices hain toh duplicate count karo
     if (cluster.length > 1) {
       // Find latest device by created_at / last_active
-      const sorted = [...cluster].sort((a, b) => (b.created_at || b.last_active || 0) - (a.created_at || a.last_active || 0));
+      const sorted = [...cluster].sort((a, b) => (normalizeTimestamp(b.created_at) || normalizeTimestamp(b.last_active)) - (normalizeTimestamp(a.created_at) || normalizeTimestamp(a.last_active)));
       // Jo latest nahi hai wo dead duplicate hai
       if (p.id !== sorted[0].id) {
         duplicateCount++;
@@ -162,7 +189,7 @@ function applyFiltersAndRender() {
     if (isUninstalled) {
       uninstalledCount++;
     } else {
-      const diff = nowSec - (p.last_active || 0);
+      const diff = nowSec - normalizeTimestamp(p.last_active);
       const isOnline = diff <= 120;
       if (isOnline) {
         onlineCount++;
@@ -176,7 +203,7 @@ function applyFiltersAndRender() {
 
   const filtered = players.filter(p => {
     const isUninstalled = isUninstalledOrOptedOut(p);
-    const diffSec = nowSec - (p.last_active || 0);
+    const diffSec = nowSec - normalizeTimestamp(p.last_active);
     const isOnline = diffSec <= 120 && !isUninstalled;
     const key = getDeviceFingerprint(p);
     const cluster = duplicateMap.get(key) || [];
@@ -232,7 +259,7 @@ function applyFiltersAndRender() {
   }
 
   filtered.forEach(p => {
-    const diffSec = nowSec - (p.last_active || 0);
+    const diffSec = nowSec - normalizeTimestamp(p.last_active);
     const isUnsubscribed = isUninstalledOrOptedOut(p);
     const isOnlineNow = diffSec <= 120 && !isUnsubscribed;
     const friendlyName = translateDeviceName(p.device_model);
@@ -248,7 +275,7 @@ function applyFiltersAndRender() {
     let isLatestOfCluster = false;
 
     if (cluster.length > 1) {
-      const sorted = [...cluster].sort((a, b) => (b.created_at || b.last_active || 0) - (a.created_at || a.last_active || 0));
+      const sorted = [...cluster].sort((a, b) => (normalizeTimestamp(b.created_at) || normalizeTimestamp(b.last_active)) - (normalizeTimestamp(a.created_at) || normalizeTimestamp(a.last_active)));
       if (p.id === sorted[0].id) {
         isLatestOfCluster = true;
       } else {
@@ -380,7 +407,7 @@ function openProfile(p) {
   activePlayerBeingInspected = p;
   const friendlyName = translateDeviceName(p.device_model);
   const nowSec = Math.floor(Date.now() / 1000);
-  const diffSec = nowSec - (p.last_active || 0);
+  const diffSec = nowSec - normalizeTimestamp(p.last_active);
   const isUnsubscribed = isUninstalledOrOptedOut(p);
   const isOnlineNow = diffSec <= 120 && !isUnsubscribed;
 

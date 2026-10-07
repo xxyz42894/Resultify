@@ -1,7 +1,7 @@
 import { ref, get, set, remove } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 import { database } from "./firebase-config.js";
 
-// DOM
+// DOM Elements
 const form = document.getElementById("templateForm");
 const tplName = document.getElementById("tplName");
 const tplTitle = document.getElementById("tplTitle");
@@ -12,7 +12,6 @@ const tplBtn1Text = document.getElementById("tplBtn1Text");
 const tplBtn1Url = document.getElementById("tplBtn1Url");
 const tplBtn2Text = document.getElementById("tplBtn2Text");
 const tplBtn2Url = document.getElementById("tplBtn2Url");
-const tplBannerType = document.getElementById("tplBannerType");
 
 // Live Preview
 const prevTitle = document.getElementById("prevTitle");
@@ -27,7 +26,7 @@ const prevB2 = document.getElementById("prevB2");
 const listContainer = document.getElementById("templatesListContainer");
 const tplCountBadge = document.getElementById("tplCountBadge");
 
-// DEFAULT 6 TEMPLATES (Built-in out of the box)
+// Clean Presets
 export const DEFAULT_TEMPLATES = [
   {
     id: "def_bpsc_result",
@@ -41,7 +40,6 @@ export const DEFAULT_TEMPLATES = [
     btn1Url: "https://bpsc.bihar.gov.in",
     btn2Text: "Download PDF",
     btn2Url: "https://bpsc.bihar.gov.in/pdf",
-    bannerType: "NOTICE",
     isDefault: true
   },
   {
@@ -56,7 +54,6 @@ export const DEFAULT_TEMPLATES = [
     btn1Url: "http://results.biharboardonline.com",
     btn2Text: "Official Site",
     btn2Url: "http://biharboardonline.bihar.gov.in",
-    bannerType: "NOTICE",
     isDefault: true
   },
   {
@@ -71,7 +68,6 @@ export const DEFAULT_TEMPLATES = [
     btn1Url: "https://ppup.ac.in/results",
     btn2Text: "College Login",
     btn2Url: "https://ppup.ac.in",
-    bannerType: "NONE",
     isDefault: true
   },
   {
@@ -86,7 +82,6 @@ export const DEFAULT_TEMPLATES = [
     btn1Url: "https://example.com/admit-card",
     btn2Text: "Center Details",
     btn2Url: "https://example.com/centers",
-    bannerType: "NONE",
     isDefault: true
   },
   {
@@ -99,9 +94,8 @@ export const DEFAULT_TEMPLATES = [
     image: "",
     btn1Text: "Update Now",
     btn1Url: "https://play.google.com/store/apps/details?id=com.resultify.app",
-    btn2Text: "Changelog",
+    btn2Text: "Later",
     btn2Url: "",
-    bannerType: "UPDATE",
     isDefault: true
   },
   {
@@ -116,10 +110,14 @@ export const DEFAULT_TEMPLATES = [
     btn1Url: "",
     btn2Text: "",
     btn2Url: "",
-    bannerType: "BUG",
     isDefault: true
   }
 ];
+
+function safeHttpUrl(value) {
+  const url = String(value || "").trim();
+  return /^https?:\/\//i.test(url) ? url : "";
+}
 
 function showToast(msg, type = "info") {
   const container = document.getElementById("toastContainer");
@@ -181,7 +179,7 @@ function updateLivePreview() {
 });
 document.querySelectorAll('input[name="tplPriority"]').forEach(r => r.addEventListener("change", updateLivePreview));
 
-// 2. FETCH ALL TEMPLATES (BUILT-IN + FIREBASE RTDB)
+// 2. FETCH ALL TEMPLATES
 export async function getAllTemplates() {
   const combined = [...DEFAULT_TEMPLATES];
   try {
@@ -219,15 +217,14 @@ async function renderTemplatesList() {
     card.innerHTML = `
       <div class="flex items-start justify-between gap-2">
         <div>
-          <h4 class="text-xs font-bold" style="color:var(--text-primary);">${t.name}</h4>
+          <h4 class="text-xs font-bold" style="color:var(--text-primary);">${escapeHtml(t.name)}</h4>
           <div class="flex items-center gap-2 mt-1">
             <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase" style="${badgeColor}">${t.priority}</span>
-            ${t.bannerType && t.bannerType !== "NONE" ? `<span class="text-[9px] font-bold px-1.5 py-0.2 rounded" style="background:rgba(14,116,144,0.15); color:var(--accent-cyan);">${t.bannerType} BANNER</span>` : ''}
             ${t.isDefault ? `<span class="text-[9px] font-bold text-gray-500">DEFAULT</span>` : ''}
           </div>
         </div>
         ${!t.isDefault ? `
-          <button data-del="${t.id}" class="text-rose-500 hover:text-rose-700 p-1" title="Delete Template">
+          <button data-del="${escapeHtml(t.id)}" class="text-rose-500 hover:text-rose-700 p-1" title="Delete Template">
             <span class="material-symbols-outlined text-16">delete</span>
           </button>
         ` : ''}
@@ -235,41 +232,55 @@ async function renderTemplatesList() {
 
       <!-- Preview Box -->
       <div class="p-2.5 rounded-xl border bg-black/5 text-[11px] space-y-1" style="border-color:var(--border-subtle);">
-        <p class="font-bold text-xs" style="color:var(--text-primary);">${t.title}</p>
-        <p class="line-clamp-2" style="color:var(--text-muted);">${t.body}</p>
-        ${t.image ? `<div class="mt-1.5 max-h-24 overflow-hidden rounded"><img src="${t.image}" class="w-full h-auto object-cover" /></div>` : ''}
+        <p class="font-bold text-xs" style="color:var(--text-primary);">${escapeHtml(t.title)}</p>
+        <p class="line-clamp-2" style="color:var(--text-muted);">${escapeHtml(t.body)}</p>
+        ${safeHttpUrl(t.image) ? `<div class="mt-1.5 max-h-24 overflow-hidden rounded"><img src="${escapeHtml(safeHttpUrl(t.image))}" class="w-full h-auto object-cover" /></div>` : ''}
         ${(t.btn1Text || t.btn2Text) ? `
           <div class="flex gap-2 pt-1">
-            ${t.btn1Text ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded surface-card border" style="color:var(--accent-mint);">${t.btn1Text}</span>` : ''}
-            ${t.btn2Text ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded surface-card border" style="color:var(--accent-mint);">${t.btn2Text}</span>` : ''}
+            ${t.btn1Text ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded surface-card border" style="color:var(--accent-mint);">${escapeHtml(t.btn1Text)}</span>` : ''}
+            ${t.btn2Text ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded surface-card border" style="color:var(--accent-mint);">${escapeHtml(t.btn2Text)}</span>` : ''}
           </div>
         ` : ''}
       </div>
 
       <!-- Use Button -->
-      <button data-use="${t.id}" class="w-full py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm" style="background-color:rgba(4,120,87,0.15); color:var(--accent-mint); border:1px solid rgba(4,120,87,0.3);">
+      <button data-use="${escapeHtml(t.id)}" class="w-full py-1.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm" style="background-color:rgba(4,120,87,0.15); color:var(--accent-mint); border:1px solid rgba(4,120,87,0.3);">
         <span class="material-symbols-outlined text-16">check_circle</span>
         <span>Use Me / Select Me</span>
       </button>
     `;
 
     // Delete Event
-    const delBtn = card.querySelector(`[data-del="${t.id}"]`);
+    const delBtn = card.querySelector(`[data-del="${escapeHtml(t.id)}"]`);
     if (delBtn) {
       delBtn.addEventListener("click", async () => {
-        if (confirm(`Delete "${t.name}" template?`)) {
-          await remove(ref(database, `push_templates/${t.id}`));
+        if (confirm(`Delete "${escapeHtml(t.name)}" template?`)) {
+          await remove(ref(database, `push_templates/${escapeHtml(t.id)}`));
           showToast("Template deleted successfully", "success");
           renderTemplatesList();
         }
       });
     }
 
-    // Use Me Event -> Saves to sessionStorage & redirects directly to Broadcast page
-    const useBtn = card.querySelector(`[data-use="${t.id}"]`);
+    // Use Me Event -> Saves clean data to sessionStorage & redirects
+    const useBtn = card.querySelector(`[data-use="${escapeHtml(t.id)}"]`);
     if (useBtn) {
       useBtn.addEventListener("click", () => {
-        sessionStorage.setItem("resultify_selected_template", JSON.stringify(t));
+        // Whitelist only the current template schema. Legacy bannerType/body_url/
+        // targetUrl fields are intentionally discarded and can never reach broadcast.html.
+        const cleanTpl = {
+          name: String(t.name || ""),
+          title: String(t.title || ""),
+          body: String(t.body || ""),
+          priority: ["urgent", "high", "normal"].includes(t.priority) ? t.priority : "urgent",
+          url: String(t.url || ""),
+          image: String(t.image || ""),
+          btn1Text: String(t.btn1Text || ""),
+          btn1Url: String(t.btn1Url || ""),
+          btn2Text: String(t.btn2Text || ""),
+          btn2Url: String(t.btn2Url || "")
+        };
+        sessionStorage.setItem("resultify_selected_template", JSON.stringify(cleanTpl));
         window.location.href = "broadcast.html";
       });
     }
@@ -292,7 +303,6 @@ if (form) {
     const btn1Url = tplBtn1Url ? tplBtn1Url.value.trim() : "";
     const btn2Text = tplBtn2Text ? tplBtn2Text.value.trim() : "";
     const btn2Url = tplBtn2Url ? tplBtn2Url.value.trim() : "";
-    const bannerType = tplBannerType ? tplBannerType.value : "NONE";
 
     if (!name || !title || !body) return;
 
@@ -308,7 +318,6 @@ if (form) {
       btn1Url,
       btn2Text,
       btn2Url,
-      bannerType,
       createdAt: Date.now()
     };
 

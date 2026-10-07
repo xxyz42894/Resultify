@@ -1,12 +1,46 @@
-import { ref, set, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+import { ref, get, remove } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 import { database } from "./firebase-config.js";
 import { getOneSignalSubscribers, sendPushNotification, deleteOneSignalSubscriber } from "./onesignal-api.js";
+
+// Normalize OneSignal timestamps: seconds, milliseconds, numeric strings, or ISO dates.
+function normalizeTimestamp(value) {
+  if (value === null || value === undefined || value === "") return 0;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) return numeric > 10000000000 ? numeric / 1000 : numeric;
+    const parsed = Date.parse(trimmed);
+    return Number.isFinite(parsed) ? parsed / 1000 : 0;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value > 10000000000 ? value / 1000 : value;
+  }
+  return 0;
+}
 
 // DOM Elements
 const form = document.getElementById("broadcastForm");
 const targetSelect = document.getElementById("targetAudience");
 const audienceCountBadge = document.getElementById("targetAudienceCountBadge");
 const audienceExplanationText = document.getElementById("audienceExplanationText");
+
+// Target Activity & Result ID Toggle Elements
+const targetActivitySelect = document.getElementById("bcTargetActivity");
+const toggleResultId = document.getElementById("toggleResultId");
+const resultIdContainer = document.getElementById("bcResultIdContainer");
+const resultIdInput = document.getElementById("bcResultId");
+const resultMatchCard = document.getElementById("resultMatchCard");
+const matchedResultCategory = document.getElementById("matchedResultCategory");
+const matchedResultTitle = document.getElementById("matchedResultTitle");
+const resultNotFoundWarning = document.getElementById("resultNotFoundWarning");
+const resultIdCheckingSpinner = document.getElementById("resultIdCheckingSpinner");
+
+// Action Button Inputs
+const btn1TextInput = document.getElementById("bcBtn1Text");
+const btn1UrlInput = document.getElementById("bcBtn1Url");
+const btn2TextInput = document.getElementById("bcBtn2Text");
+const btn2UrlInput = document.getElementById("bcBtn2Url");
 
 // Custom Subscription ID Validator Elements
 const customSubIdContainer = document.getElementById("customSubIdContainer");
@@ -42,10 +76,6 @@ const bodyInput = document.getElementById("bcBody");
 const urlInput = document.getElementById("bcUrl");
 const bigPictureInput = document.getElementById("bcBigPicture");
 const largeIconInput = document.getElementById("bcLargeIcon");
-const btn1TextInput = document.getElementById("bcBtn1Text");
-const btn1UrlInput = document.getElementById("bcBtn1Url");
-const btn2TextInput = document.getElementById("bcBtn2Text");
-const btn2UrlInput = document.getElementById("bcBtn2Url");
 
 // Mockup Elements
 const mockupTitle = document.getElementById("mockupTitle");
@@ -56,12 +86,6 @@ const mockupBigPicImg = document.getElementById("mockupBigPictureImg");
 const mockupBtnsContainer = document.getElementById("mockupBtnsContainer");
 const mockupBtn1 = document.getElementById("mockupBtn1");
 const mockupBtn2 = document.getElementById("mockupBtn2");
-
-// Toggles
-const toggleUpdate = document.getElementById("toggleAppUpdate");
-const toggleNotice = document.getElementById("toggleNotice");
-const toggleBug = document.getElementById("toggleBug");
-const allToggles = [toggleUpdate, toggleNotice, toggleBug];
 
 // Inspector Elements
 const inspectorCard = document.getElementById("responseInspectorCard");
@@ -81,9 +105,9 @@ const modalTemplatesList = document.getElementById("modalTemplatesList");
 let allSubscribers = [];
 let officialTestUsers = [];
 let detectedGhostIds = new Set();
-let validatedManualSubscribers = []; // Custom validated devices list
+let validatedManualSubscribers = [];
 
-// DEFAULT PRESETS
+// DEFAULT PRESETS (Fallback built-in)
 const DEFAULT_PRESETS = [
   {
     id: "def_bpsc_result",
@@ -97,7 +121,7 @@ const DEFAULT_PRESETS = [
     btn1Url: "https://bpsc.bihar.gov.in",
     btn2Text: "Official Site",
     btn2Url: "https://bpsc.bihar.gov.in",
-    bannerType: "NOTICE"
+    isDefault: true
   },
   {
     id: "def_10th_12th_board",
@@ -111,35 +135,7 @@ const DEFAULT_PRESETS = [
     btn1Url: "http://results.biharboardonline.com",
     btn2Text: "Official Site",
     btn2Url: "http://biharboardonline.bihar.gov.in",
-    bannerType: "NOTICE"
-  },
-  {
-    id: "def_university_exam",
-    name: "University UG / PG Semester Result",
-    priority: "high",
-    title: "University Semester Result Declared 🎓",
-    body: "BA, BSc, BCom Part 1/2/3 examination marksheet link is now activated on portal.",
-    url: "https://ppup.ac.in",
-    image: "",
-    btn1Text: "Check Result",
-    btn1Url: "https://ppup.ac.in",
-    btn2Text: "Portal",
-    btn2Url: "https://ppup.ac.in",
-    bannerType: "NONE"
-  },
-  {
-    id: "def_admit_card",
-    name: "Admit Card / Hall Ticket Released",
-    priority: "high",
-    title: "Admit Card Released - Download Hall Ticket 🎟️",
-    body: "Exam city slips and official hall tickets are now available. Download before exam date.",
-    url: "https://example.com/admit-card",
-    image: "",
-    btn1Text: "Download Slip",
-    btn1Url: "https://example.com/admit-card",
-    btn2Text: "Official Notice",
-    btn2Url: "https://example.com",
-    bannerType: "NONE"
+    isDefault: true
   },
   {
     id: "def_app_update",
@@ -153,21 +149,7 @@ const DEFAULT_PRESETS = [
     btn1Url: "https://play.google.com/store/apps/details?id=com.resultify.app",
     btn2Text: "Later",
     btn2Url: "",
-    bannerType: "UPDATE"
-  },
-  {
-    id: "def_server_alert",
-    name: "Emergency Server Maintenance Alert",
-    priority: "urgent",
-    title: "Server Maintenance In Progress ⚠️",
-    body: "Result servers are undergoing routine maintenance for 30 minutes. Services will be restored shortly.",
-    url: "",
-    image: "",
-    btn1Text: "",
-    btn1Url: "",
-    btn2Text: "",
-    btn2Url: "",
-    bannerType: "BUG"
+    isDefault: true
   }
 ];
 
@@ -192,7 +174,78 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.remove(), 4000);
 }
 
-// 1. LIVE PREVIEW UPDATE
+// 1. REAL-TIME RESULT ID LOOKUP & SUGGESTION
+let resultLookupTimeout = null;
+
+async function checkResultIdInDatabase(idVal) {
+  if (!idVal || isNaN(idVal)) {
+    if (resultMatchCard) resultMatchCard.classList.add("hidden");
+    if (resultNotFoundWarning) resultNotFoundWarning.classList.add("hidden");
+    return;
+  }
+
+  if (resultIdCheckingSpinner) resultIdCheckingSpinner.classList.remove("hidden");
+
+  try {
+    const snap = await get(ref(database, "results"));
+    let foundResult = null;
+
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const val = child.val();
+        if (Number(val.id) === Number(idVal) || String(child.key) === String(idVal)) {
+          foundResult = val;
+        }
+      });
+    }
+
+    if (foundResult) {
+      if (resultMatchCard) {
+        resultMatchCard.classList.remove("hidden");
+        matchedResultCategory.textContent = (foundResult.category || "EXAM").toUpperCase();
+        matchedResultTitle.textContent = foundResult.title || "Found Result";
+      }
+      if (resultNotFoundWarning) resultNotFoundWarning.classList.add("hidden");
+    } else {
+      if (resultMatchCard) resultMatchCard.classList.add("hidden");
+      if (resultNotFoundWarning) resultNotFoundWarning.classList.remove("hidden");
+    }
+  } catch (err) {
+    console.warn("Result verify error:", err);
+  } finally {
+    if (resultIdCheckingSpinner) resultIdCheckingSpinner.classList.add("hidden");
+  }
+}
+
+if (resultIdInput) {
+  resultIdInput.addEventListener("input", () => {
+    clearTimeout(resultLookupTimeout);
+    const val = resultIdInput.value.trim();
+    resultLookupTimeout = setTimeout(() => {
+      checkResultIdInDatabase(val);
+    }, 400);
+  });
+}
+
+if (toggleResultId && resultIdContainer) {
+  toggleResultId.addEventListener("change", () => {
+    if (toggleResultId.checked) {
+      resultIdContainer.classList.remove("hidden");
+      if (btn1UrlInput) btn1UrlInput.disabled = true;
+      if (btn2UrlInput) btn2UrlInput.disabled = true;
+      if (resultIdInput && resultIdInput.value) checkResultIdInDatabase(resultIdInput.value.trim());
+    } else {
+      resultIdContainer.classList.add("hidden");
+      if (resultIdInput) resultIdInput.value = "";
+      if (resultMatchCard) resultMatchCard.classList.add("hidden");
+      if (resultNotFoundWarning) resultNotFoundWarning.classList.add("hidden");
+      if (btn1UrlInput) btn1UrlInput.disabled = false;
+      if (btn2UrlInput) btn2UrlInput.disabled = false;
+    }
+  });
+}
+
+// 2. LIVE PREVIEW UPDATE
 function updateMockup() {
   if (titleInput && mockupTitle) {
     mockupTitle.textContent = titleInput.value.trim() || "Notification Title";
@@ -266,7 +319,7 @@ function getDeviceFingerprint(p) {
   return `${model}___${os}`;
 }
 
-// 2. GHOST / DUPLICATE DETECTOR ENGINE
+// 3. GHOST DEVICE ENGINE
 function analyzeGhostDevices(subList) {
   const clusterMap = new Map();
   detectedGhostIds = new Set();
@@ -280,7 +333,7 @@ function analyzeGhostDevices(subList) {
 
   clusterMap.forEach((devices) => {
     if (devices.length > 1) {
-      const sorted = [...devices].sort((a, b) => (b.created_at || b.last_active || 0) - (a.created_at || a.last_active || 0));
+      const sorted = [...devices].sort((a, b) => (normalizeTimestamp(b.created_at) || normalizeTimestamp(b.last_active)) - (normalizeTimestamp(a.created_at) || normalizeTimestamp(a.last_active)));
       for (let i = 1; i < sorted.length; i++) {
         detectedGhostIds.add(sorted[i].id);
         ghostListDetails.push(sorted[i]);
@@ -343,7 +396,7 @@ function renderGhostUI(ghostDevices) {
   });
 }
 
-// 3. AUDIENCE CALCULATION ENGINE
+// 4. AUDIENCE ENGINE
 function getAudienceTargets(mode) {
   const nowSec = Math.floor(Date.now() / 1000);
   let installedList = (allSubscribers || []).filter(isInstalledSubscriber);
@@ -366,7 +419,7 @@ function getAudienceTargets(mode) {
       const maxSec = maxDays * 86400;
 
       return installedList.filter(p => {
-        const diff = nowSec - (p.last_active || 0);
+        const diff = nowSec - normalizeTimestamp(p.last_active);
         return diff >= minSec && diff <= maxSec;
       });
     }
@@ -376,7 +429,7 @@ function getAudienceTargets(mode) {
       const thresholdSec = inactiveDays * 86400;
 
       return installedList.filter(p => {
-        const diff = nowSec - (p.last_active || 0);
+        const diff = nowSec - normalizeTimestamp(p.last_active);
         return diff > thresholdSec;
       });
     }
@@ -415,7 +468,6 @@ function updateAudienceUI() {
     }
   }
 
-  // Handle Custom Subscription ID Box
   if (customSubIdContainer) {
     if (mode === "custom_subscription_id") {
       customSubIdContainer.classList.remove("hidden");
@@ -424,7 +476,6 @@ function updateAudienceUI() {
     }
   }
 
-  // Handle Custom Date Range Box UI
   if (customRangePickerBox) {
     if (mode === "custom_active_range") {
       customRangePickerBox.classList.remove("hidden");
@@ -443,7 +494,6 @@ function updateAudienceUI() {
     }
   }
 
-  // Explanation Text
   if (audienceExplanationText) {
     const explanations = {
       all_clean: "Dead duplicate/ghost devices ko hata kar sabhi active devices ko message jayega.",
@@ -457,7 +507,6 @@ function updateAudienceUI() {
     audienceExplanationText.textContent = explanations[mode] || "";
   }
 
-  // Show / Hide Test Container
   if (testingDevContainer) {
     if (mode === "testing_specific" || mode === "testing_all") {
       testingDevContainer.classList.remove("hidden");
@@ -467,7 +516,6 @@ function updateAudienceUI() {
   }
 }
 
-// Live Listeners to Range Inputs & Ghost Toggle
 [inputMinDays, inputMaxDays, inputInactiveDays].forEach(input => {
   if (input) {
     input.addEventListener("input", updateAudienceUI);
@@ -479,7 +527,7 @@ if (toggleIgnoreGhost) {
   toggleIgnoreGhost.addEventListener("change", updateAudienceUI);
 }
 
-// 4. MANUAL SUBSCRIPTION ID VALIDATOR ENGINE
+// 5. MANUAL SUBSCRIPTION ID VALIDATION
 function renderValidatedManualSubsList() {
   if (!validatedSubList) return;
   validatedSubList.innerHTML = "";
@@ -562,7 +610,6 @@ if (validateAddSubBtn && manualSubIdInput) {
         updateAudienceUI();
         showToast(`Validated: ${found.device_model || 'Android Device'} (${found.device_os || ''})`, "success");
       } else {
-        // Fallback agar direct subscriber list me na mile
         const fallbackObj = {
           id: inputVal,
           device_model: "Custom Targeted Phone",
@@ -583,7 +630,7 @@ if (validateAddSubBtn && manualSubIdInput) {
   });
 }
 
-// 5. TAG-BASED TEST USERS DETECTOR
+// 6. TEST USERS LIST
 async function loadOneSignalSubscribersAndTesters() {
   if (testersCheckboxList) {
     testersCheckboxList.innerHTML = '<p class="text-[11px]" style="color: var(--text-muted);">Fetching official test devices from OneSignal...</p>';
@@ -691,26 +738,14 @@ if (refreshDevsBtn) {
   refreshDevsBtn.addEventListener("click", loadOneSignalSubscribersAndTesters);
 }
 
-// 6. BANNER TOGGLES
-allToggles.forEach(tog => {
-  if (!tog) return;
-  tog.addEventListener("change", () => {
-    if (tog.checked) {
-      allToggles.forEach(other => {
-        if (other && other !== tog) other.checked = false;
-      });
-    }
-  });
-});
-
-// 7. TEMPLATES ENGINE
+// 7. TEMPLATES MODAL ENGINE
 async function fetchAllTemplatesList() {
   const combined = [...DEFAULT_PRESETS];
   try {
     const snap = await get(ref(database, "push_templates"));
     if (snap.exists()) {
       snap.forEach(child => {
-        combined.push({ id: child.key, ...child.val() });
+        combined.push({ id: child.key, ...child.val(), isDefault: false });
       });
     }
   } catch (err) {
@@ -722,33 +757,125 @@ async function fetchAllTemplatesList() {
 function applyTemplate(t) {
   if (!t) return;
 
-  if (titleInput) titleInput.value = t.title || "";
-  if (bodyInput) bodyInput.value = t.body || "";
+  // Templates are data-only presets. Ignore obsolete banner/dispatch keys.
+  const cleanTemplate = {
+    title: String(t.title || ""),
+    body: String(t.body || ""),
+    priority: ["urgent", "high", "normal"].includes(t.priority) ? t.priority : "urgent",
+    url: String(t.url || ""),
+    image: String(t.image || ""),
+    btn1Text: String(t.btn1Text || ""),
+    btn1Url: String(t.btn1Url || ""),
+    btn2Text: String(t.btn2Text || ""),
+    btn2Url: String(t.btn2Url || "")
+  };
 
-  if (t.priority) {
-    const radio = document.querySelector(`input[name="bcPriority"][value="${t.priority}"]`);
+  if (titleInput) titleInput.value = cleanTemplate.title;
+  if (bodyInput) bodyInput.value = cleanTemplate.body;
+
+  if (cleanTemplate.priority) {
+    const radio = document.querySelector(`input[name="bcPriority"][value="${cleanTemplate.priority}"]`);
     if (radio) radio.checked = true;
   }
 
-  if (urlInput) urlInput.value = t.url || "";
-  if (bigPictureInput) bigPictureInput.value = t.image || "";
-  if (largeIconInput) largeIconInput.value = t.image || "";
+  if (urlInput) urlInput.value = cleanTemplate.url;
+  if (bigPictureInput) bigPictureInput.value = cleanTemplate.image;
+  if (largeIconInput) largeIconInput.value = cleanTemplate.image;
 
-  if (btn1TextInput) btn1TextInput.value = t.btn1Text || "";
-  if (btn1UrlInput) btn1UrlInput.value = t.btn1Url || "";
+  if (btn1TextInput) btn1TextInput.value = cleanTemplate.btn1Text;
+  if (btn1UrlInput) btn1UrlInput.value = cleanTemplate.btn1Url;
 
-  if (btn2TextInput) btn2TextInput.value = t.btn2Text || "";
-  if (btn2UrlInput) btn2UrlInput.value = t.btn2Url || "";
-
-  allToggles.forEach(tog => { if (tog) tog.checked = false; });
-  if (t.bannerType === "UPDATE" && toggleUpdate) toggleUpdate.checked = true;
-  if (t.bannerType === "NOTICE" && toggleNotice) toggleNotice.checked = true;
-  if (t.bannerType === "BUG" && toggleBug) toggleBug.checked = true;
+  if (btn2TextInput) btn2TextInput.value = cleanTemplate.btn2Text;
+  if (btn2UrlInput) btn2UrlInput.value = cleanTemplate.btn2Url;
 
   updateMockup();
-  showToast(`Applied: "${t.name}"!`, "success");
+  showToast(`Applied preset: "${t.name}"!`, "success");
 }
 
+async function renderModalTemplates() {
+  if (!modalTemplatesList) return;
+  modalTemplatesList.innerHTML = '<p class="text-xs text-center py-4" style="color:var(--text-muted);">Loading presets...</p>';
+
+  const templates = await fetchAllTemplatesList();
+  modalTemplatesList.innerHTML = "";
+
+  templates.forEach(t => {
+    const card = document.createElement("div");
+    card.className = "p-3 rounded-2xl border surface-card space-y-2.5 relative";
+    card.style.borderColor = "var(--border-subtle)";
+
+    const badgeColor = t.priority === "urgent" 
+      ? "background:rgba(4,120,87,0.15); color:var(--accent-mint);" 
+      : (t.priority === "high" ? "background:rgba(180,83,9,0.15); color:var(--accent-amber);" : "background:rgba(74,93,110,0.15); color:var(--text-muted);");
+
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <h4 class="text-xs font-bold" style="color:var(--text-primary);">${t.name}</h4>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase" style="${badgeColor}">${t.priority}</span>
+          ${!t.isDefault ? `
+            <button type="button" class="delModalTplBtn text-rose-500 hover:text-rose-700 p-0.5" data-id="${t.id}" title="Delete Template">
+              <span class="material-symbols-outlined text-16">delete</span>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+      <div class="p-2.5 rounded-xl bg-black/5 text-[11px] space-y-1 border" style="border-color:var(--border-subtle);">
+        <p class="font-bold text-xs" style="color:var(--text-primary);">${t.title}</p>
+        <p class="line-clamp-2" style="color:var(--text-muted);">${t.body}</p>
+        ${t.image ? `<div class="mt-1 max-h-20 overflow-hidden rounded"><img src="${t.image}" class="w-full h-auto object-cover" /></div>` : ''}
+        ${(t.btn1Text || t.btn2Text) ? `
+          <div class="flex gap-1.5 pt-1">
+            ${t.btn1Text ? `<span class="text-[9px] font-bold px-2 py-0.5 rounded surface-card border" style="color:var(--accent-mint);">${t.btn1Text}</span>` : ''}
+            ${t.btn2Text ? `<span class="text-[9px] font-bold px-2 py-0.5 rounded surface-card border" style="color:var(--accent-mint);">${t.btn2Text}</span>` : ''}
+          </div>
+        ` : ''}
+      </div>
+      <button type="button" class="useModalTplBtn w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm" style="background-color:var(--accent-mint); color:#FFFFFF;">
+        <span class="material-symbols-outlined text-16">done_all</span>
+        <span>Use This Preset</span>
+      </button>
+    `;
+
+    card.querySelector(".useModalTplBtn").addEventListener("click", () => {
+      applyTemplate(t);
+      if (templateModal) templateModal.classList.add("hidden");
+    });
+
+    const delBtn = card.querySelector(".delModalTplBtn");
+    if (delBtn) {
+      delBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (confirm(`Delete template "${t.name}" permanently from Firebase?`)) {
+          try {
+            await remove(ref(database, `push_templates/${t.id}`));
+            showToast("Template deleted!", "success");
+            renderModalTemplates();
+          } catch (err) {
+            showToast("Delete failed: " + err.message, "error");
+          }
+        }
+      });
+    }
+
+    modalTemplatesList.appendChild(card);
+  });
+}
+
+if (openTemplateModalBtn && templateModal) {
+  openTemplateModalBtn.addEventListener("click", () => {
+    templateModal.classList.remove("hidden");
+    renderModalTemplates();
+  });
+}
+
+if (closeTemplateModalBtn && templateModal) {
+  closeTemplateModalBtn.addEventListener("click", () => {
+    templateModal.classList.add("hidden");
+  });
+}
+
+// Check sessionStorage if opened from templates.html
 const savedTpl = sessionStorage.getItem("resultify_selected_template");
 if (savedTpl) {
   try {
@@ -758,61 +885,7 @@ if (savedTpl) {
   } catch (e) {}
 }
 
-if (openTemplateModalBtn && templateModal) {
-  openTemplateModalBtn.addEventListener("click", async () => {
-    templateModal.classList.remove("hidden");
-    if (!modalTemplatesList) return;
-    modalTemplatesList.innerHTML = '<p class="text-xs text-center py-4">Loading presets...</p>';
-
-    const templates = await fetchAllTemplatesList();
-    modalTemplatesList.innerHTML = "";
-
-    templates.forEach(t => {
-      const card = document.createElement("div");
-      card.className = "p-3 rounded-2xl border surface-card space-y-2.5";
-      card.style.borderColor = "var(--border-subtle)";
-
-      const badgeColor = t.priority === "urgent" 
-        ? "background:rgba(4,120,87,0.15); color:var(--accent-mint);" 
-        : (t.priority === "high" ? "background:rgba(180,83,9,0.15); color:var(--accent-amber);" : "background:rgba(74,93,110,0.15); color:var(--text-muted);");
-
-      card.innerHTML = `
-        <div class="flex items-center justify-between">
-          <h4 class="text-xs font-bold" style="color:var(--text-primary);">${t.name}</h4>
-          <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase" style="${badgeColor}">${t.priority}</span>
-        </div>
-        <div class="p-2.5 rounded-xl bg-black/5 text-[11px] space-y-1 border" style="border-color:var(--border-subtle);">
-          <p class="font-bold text-xs" style="color:var(--text-primary);">${t.title}</p>
-          <p class="line-clamp-2" style="color:var(--text-muted);">${t.body}</p>
-          ${t.image ? `<div class="mt-1 max-h-20 overflow-hidden rounded"><img src="${t.image}" class="w-full h-auto object-cover" /></div>` : ''}
-          ${(t.btn1Text || t.btn2Text) ? `
-            <div class="flex gap-1.5 pt-1">
-              ${t.btn1Text ? `<span class="text-[9px] font-bold px-2 py-0.5 rounded surface-card border" style="color:var(--accent-mint);">${t.btn1Text}</span>` : ''}
-              ${t.btn2Text ? `<span class="text-[9px] font-bold px-2 py-0.5 rounded surface-card border" style="color:var(--accent-mint);">${t.btn2Text}</span>` : ''}
-            </div>
-          ` : ''}
-        </div>
-        <button type="button" class="w-full py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm" style="background-color:var(--accent-mint); color:#FFFFFF;">
-          <span class="material-symbols-outlined text-16">done_all</span>
-          <span>Use Me / Select Me</span>
-        </button>
-      `;
-
-      card.querySelector("button").addEventListener("click", () => {
-        applyTemplate(t);
-        templateModal.classList.add("hidden");
-      });
-
-      modalTemplatesList.appendChild(card);
-    });
-  });
-}
-
-if (closeTemplateModalBtn && templateModal) {
-  closeTemplateModalBtn.addEventListener("click", () => templateModal.classList.add("hidden"));
-}
-
-// 8. FORM DISPATCH ENGINE (FIXED webButtons ERROR)
+// 8. FORM DISPATCH ENGINE (Push Alerts Exclusively)
 if (form) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -825,7 +898,48 @@ if (form) {
     const selectedChannel = document.getElementById("bcChannelSelect")?.value || "Result Alerts";
     const targetMode = targetSelect.value;
 
+    const selectedActivity = targetActivitySelect ? targetActivitySelect.value : "ExternalLink";
+
+    let finalResultId = 0;
+    if (toggleResultId && toggleResultId.checked && resultIdInput) {
+      finalResultId = parseInt(resultIdInput.value.trim()) || 0;
+    }
+
     if (!title || !body) return;
+
+    const customData = {
+      openActivity: selectedActivity,
+      resultId: finalResultId
+    };
+
+    if (url) {
+      customData.url = url;
+    }
+
+    const actionButtons = [];
+    const b1Text = btn1TextInput ? btn1TextInput.value.trim() : "";
+    const b1Url = (finalResultId === 0 && btn1UrlInput) ? btn1UrlInput.value.trim() : "";
+
+    const b2Text = btn2TextInput ? btn2TextInput.value.trim() : "";
+    const b2Url = (finalResultId === 0 && btn2UrlInput) ? btn2UrlInput.value.trim() : "";
+
+    if (b1Text) {
+      actionButtons.push({
+        id: "btn_action_1",
+        text: b1Text,
+        url: b1Url || undefined
+      });
+      if (b1Url) customData.btn_action_1_url = b1Url;
+    }
+
+    if (b2Text) {
+      actionButtons.push({
+        id: "btn_action_2",
+        text: b2Text,
+        url: b2Url || undefined
+      });
+      if (b2Url) customData.btn_action_2_url = b2Url;
+    }
 
     let targetIds = [];
 
@@ -859,22 +973,13 @@ if (form) {
       submitBtn.innerHTML = `<span class="material-symbols-outlined text-18 animate-spin">refresh</span> Dispatching (${targetIds.length} Device${targetIds.length === 1 ? '' : 's'})...`;
     }
 
-    const actionButtons = [];
-    const b1Text = btn1TextInput ? btn1TextInput.value.trim() : "";
-    const b1Url = btn1UrlInput ? btn1UrlInput.value.trim() : "";
-    if (b1Text) actionButtons.push({ id: "btn_action_1", text: b1Text, url: b1Url || undefined });
-
-    const b2Text = btn2TextInput ? btn2TextInput.value.trim() : "";
-    const b2Url = btn2UrlInput ? btn2UrlInput.value.trim() : "";
-    if (b2Text) actionButtons.push({ id: "btn_action_2", text: b2Text, url: b2Url || undefined });
-
     const oneSignalPayload = {
       target_channel: "push",
       headings: { en: title },
       contents: { en: body },
-      include_subscription_ids: targetIds,
-      priority_mode: selectedMode,
-      existing_android_channel_id: selectedChannel
+      existing_android_channel_id: selectedChannel,
+      data: customData,
+      include_subscription_ids: targetIds
     };
 
     if (selectedMode === "urgent") {
@@ -886,6 +991,7 @@ if (form) {
       oneSignalPayload.priority = 10;
       oneSignalPayload.android_sound = "default";
       oneSignalPayload.android_visibility = 1;
+      oneSignalPayload.android_accent_color = "FFB45309";
     } else {
       oneSignalPayload.priority = 5;
       oneSignalPayload.android_sound = null;
@@ -895,8 +1001,7 @@ if (form) {
     if (url) oneSignalPayload.url = url;
     if (bigPicture) oneSignalPayload.big_picture = bigPicture;
     if (largeIcon) oneSignalPayload.large_icon = largeIcon;
-    
-    // SAFE BUTTONS ATTACH (Resolved undefined variable crash)
+
     if (actionButtons.length > 0) {
       oneSignalPayload.buttons = actionButtons;
     }
@@ -923,29 +1028,7 @@ if (form) {
           respIdVal.textContent = pushRes.id;
           respIdVal.style.color = "var(--accent-mint)";
         }
-
-        let bannerType = null;
-        if (toggleUpdate?.checked) bannerType = "UPDATE";
-        if (toggleNotice?.checked) bannerType = "NOTICE";
-        if (toggleBug?.checked) bannerType = "BUG";
-
-        if (bannerType) {
-          try {
-            await set(ref(database, "app_announcement"), {
-              active: true,
-              type: bannerType,
-              title,
-              message: body,
-              url: url || "",
-              updatedAt: Date.now()
-            });
-            showToast(`Sent to ${targetIds.length} device(s) & pinned banner!`, "success");
-          } catch (firebaseErr) {
-            showToast(`Push sent successfully to ${targetIds.length} device(s)!`, "info");
-          }
-        } else {
-          showToast(`Delivered successfully to ${targetIds.length} device(s)!`, "success");
-        }
+        showToast(`Delivered successfully to ${targetIds.length} device(s)!`, "success");
       } else {
         if (respStatusBadge) {
           respStatusBadge.textContent = `HTTP ${pushRes.statusCode || 400} REJECTED`;
