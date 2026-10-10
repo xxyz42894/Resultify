@@ -106,8 +106,8 @@
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-20" style="color: var(--accent-amber);">cloud_sync</span>
           <div>
-            <h3 class="text-xs font-bold" style="color: var(--text-primary);">Database JSON Manager</h3>
-            <p class="text-[10px]" style="color: var(--text-muted);">Sync, Parse & Timestamped Backups</p>
+            <h3 class="text-xs font-bold" style="color: var(--text-primary);">Database JSON & CDN Manager</h3>
+            <p class="text-[10px]" style="color: var(--text-muted);">Sync, CDN Mirroring & Timestamped Backups</p>
           </div>
         </div>
         <button type="button" id="closeSyncModalBtn" class="w-7 h-7 rounded-lg flex items-center justify-center surface-card border" style="border-color: var(--border-subtle);">
@@ -116,6 +116,51 @@
       </div>
 
       <div class="space-y-3.5 text-xs overflow-y-auto custom-scrollbar flex-1 pr-1">
+        
+        <!-- CLOUDFLARE STATIC CDN MIRROR CONTROLLER CARD -->
+        <div class="p-3.5 rounded-2xl border surface-card space-y-2.5" style="border-color: var(--accent-mint); background-color: rgba(4,120,87,0.04);">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-18" style="color: var(--accent-mint);">language</span>
+              <h4 class="text-xs font-bold" style="color: var(--text-primary);">Cloudflare CDN Mirror (Free 50k+ Scale)</h4>
+            </div>
+            <span id="cdnSyncStatusBadge" class="text-[9px] font-mono px-2 py-0.5 rounded font-bold" style="background-color: rgba(4,120,87,0.15); color: var(--accent-mint);">READY</span>
+          </div>
+          <p class="text-[11px]" style="color: var(--text-muted);">
+            Realtime database snapshot ko seedhe aapke GitHub repo me <code class="font-mono text-[10px] text-cyan-700">results.json</code> par push karega jisse Cloudflare Pages CDN update ho sake.
+          </p>
+
+          <div class="space-y-2 pt-1 border-t" style="border-color: var(--border-subtle);">
+            <div>
+              <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">GitHub Personal Access Token (repo scope):</label>
+              <input type="password" id="ghTokenInput" placeholder="ghp_xxxxxxxxxxxx" class="w-full px-3 py-1.5 rounded-xl text-xs font-mono surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">Repository (Owner/Repo):</label>
+                <input type="text" id="ghRepoInput" value="xxyz42894/resultify-cdn-demo" class="w-full px-2.5 py-1.5 rounded-xl text-xs font-mono surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold mb-0.5" style="color: var(--text-muted);">File Path:</label>
+                <input type="text" id="ghPathInput" value="results.json" class="w-full px-2.5 py-1.5 rounded-xl text-xs font-mono surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="autoSyncCdnCheckbox" checked class="rounded accent-emerald-600">
+                <span class="text-[11px] font-semibold" style="color: var(--text-primary);">Auto-Sync on Save / Delete</span>
+              </label>
+              <button type="button" id="manualCdnSyncBtn" class="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm transition-all active:scale-95" style="background-color: var(--accent-mint); color: #FFFFFF;">
+                <span class="material-symbols-outlined text-16">cloud_upload</span>
+                <span>Push Live to CDN</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- EXPORT DATABASE BACKUP CARD -->
         <div class="p-3.5 rounded-2xl border surface-card space-y-2" style="border-color: var(--border-subtle);">
           <div class="flex items-center gap-1.5">
             <span class="material-symbols-outlined text-18" style="color: var(--accent-mint);">download</span>
@@ -130,6 +175,7 @@
           </button>
         </div>
 
+        <!-- UPLOAD & SYNC JSON CARD -->
         <div class="p-3.5 rounded-2xl border surface-card space-y-2.5" style="border-color: var(--border-subtle);">
           <div class="flex items-center gap-1.5">
             <span class="material-symbols-outlined text-18" style="color: var(--accent-cyan);">upload_file</span>

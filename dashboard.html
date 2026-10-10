@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+  <meta charset="UTF-8">
   <script src="./js/security-guard.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Resultify Admin - Hub</title>
@@ -35,56 +35,33 @@
 
   <main class="max-w-md mx-auto p-4 space-y-3">
 
-    <!-- 0. LIVE APP HEADER BANNER CONTROL CARD -->
+    <!-- 0. MULTI-BANNER ANNOUNCEMENT HUB CARD -->
     <section class="p-4 rounded-2xl surface-card border space-y-3" style="border-color: var(--border-subtle);">
       <div class="flex items-center justify-between border-b pb-2.5" style="border-color: var(--border-subtle);">
         <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined text-18" style="color: var(--accent-mint);">notification_important</span>
+          <span class="material-symbols-outlined text-18" style="color: var(--accent-mint);">campaign</span>
           <div>
-            <h2 class="text-xs font-bold" style="color: var(--text-primary);">App Header Announcement Banner</h2>
-            <p class="text-[10px]" style="color: var(--text-muted);">Live RTDB Sync on App Main Screen</p>
+            <h2 class="text-xs font-bold" style="color: var(--text-primary);">App Header Announcement Hub</h2>
+            <p class="text-[10px]" style="color: var(--text-muted);">Independent Live Banners (Update, Notice & Server Alert)</p>
           </div>
         </div>
-        
-        <!-- Live Status & ON/OFF Switch -->
-        <div class="flex items-center gap-2">
-          <span id="bannerStatusBadge" class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/10 text-muted">CHECKING...</span>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="toggleLiveBanner" class="sr-only banner-toggle">
-            <div class="toggle-track"><div class="toggle-knob"></div></div>
-          </label>
-        </div>
+        <button type="button" id="addNewBannerSlotBtn" class="px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-sm active:scale-95" style="background-color: var(--accent-mint); color: #FFFFFF;">
+          <span class="material-symbols-outlined text-14">add</span>
+          <span>Add Banner</span>
+        </button>
       </div>
 
-      <!-- Banner Live Content Preview -->
-      <div id="bannerActiveCard" class="hidden p-3 rounded-xl border space-y-1.5 bg-black/5" style="border-color: var(--border-subtle);">
-        <div class="flex items-center justify-between text-[10px]">
-          <span id="bannerTypeTag" class="font-mono font-bold px-1.5 py-0.2 rounded uppercase" style="background: rgba(4,120,87,0.15); color: var(--accent-mint);">NOTICE</span>
-          <span id="bannerUpdatedTime" class="text-[9px] font-mono text-muted">--</span>
-        </div>
-        <h4 id="bannerTitleDisplay" class="text-xs font-bold" style="color: var(--text-primary);">Banner Title</h4>
-        <p id="bannerMsgDisplay" class="text-[11px] line-clamp-2" style="color: var(--text-muted);">Banner message content...</p>
-        <p id="bannerUrlDisplay" class="text-[9px] font-mono text-cyan-700 truncate select-all"></p>
-
-        <!-- Edit & Delete Buttons -->
-        <div class="flex items-center justify-end gap-2 pt-1.5 border-t border-black/5">
-          <button type="button" id="openEditBannerBtn" class="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border surface-card" style="border-color: var(--border-subtle); color: var(--accent-mint);">
-            <span class="material-symbols-outlined text-14">edit</span>
-            <span>Edit Banner</span>
-          </button>
-          <button type="button" id="deleteBannerBtn" class="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 text-rose-600 bg-rose-500/10">
-            <span class="material-symbols-outlined text-14">delete</span>
-            <span>Delete</span>
-          </button>
-        </div>
+      <!-- Live Banners Container List -->
+      <div id="bannersListContainer" class="space-y-2.5">
+        <!-- Dynamic Cards rendered via dashboard.js -->
       </div>
 
-      <!-- When No Banner is Configured -->
-      <div id="bannerEmptyNotice" class="text-center py-2 text-[11px] text-muted space-y-1.5">
-        <p>Currently koi banner set nahi hai ya banner off hai.</p>
-        <button type="button" id="createBannerBtn" class="px-3 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 shadow-sm" style="background-color: var(--accent-mint); color: #FFFFFF;">
+      <!-- Empty State -->
+      <div id="bannerEmptyNotice" class="hidden text-center py-3 text-[11px] text-muted space-y-2">
+        <p>Currently koi banner active nahi hai.</p>
+        <button type="button" class="btn-create-slot px-3 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 shadow-sm" style="background-color: var(--accent-mint); color: #FFFFFF;">
           <span class="material-symbols-outlined text-16">add_box</span>
-          <span>Create App Banner</span>
+          <span>Create First Banner</span>
         </button>
       </div>
     </section>
@@ -121,7 +98,7 @@
       </div>
     </a>
 
-     <!-- 3. Notifications Sent Card -->
+    <!-- 3. Notifications Sent Card -->
     <a href="messages.html" class="block p-4 rounded-2xl surface-card transition-all">
       <div class="flex items-center justify-between">
         <div>
@@ -230,17 +207,19 @@
 
   <!-- EDIT / CREATE BANNER MODAL -->
   <div id="editBannerModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm hidden">
-    <div class="w-full max-w-md max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-2xl surface-card border overflow-hidden p-4 space-y-3" style="background-color: var(--bg-void); border-color: var(--border-subtle);">
+    <div class="w-full max-w-md max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl surface-card border overflow-hidden p-4 space-y-3" style="background-color: var(--bg-void); border-color: var(--border-subtle);">
       <div class="flex items-center justify-between border-b pb-2.5" style="border-color: var(--border-subtle);">
-        <h3 class="text-sm font-bold" id="bannerModalTitle" style="color: var(--text-primary);">Edit Announcement Banner</h3>
+        <h3 class="text-sm font-bold" id="bannerModalTitle" style="color: var(--text-primary);">Configure Announcement Banner</h3>
         <button type="button" id="closeBannerModalBtn" class="w-8 h-8 rounded-xl flex items-center justify-center surface-card border" style="border-color: var(--border-subtle); color: var(--text-muted);">
           <span class="material-symbols-outlined text-18">close</span>
         </button>
       </div>
 
       <form id="bannerForm" class="space-y-3 overflow-y-auto pr-1">
+        <input type="hidden" id="inputBannerSlotId" value="">
+
         <div>
-          <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Banner Type</label>
+          <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Banner Category Type</label>
           <select id="inputBannerType" class="w-full px-3 py-2 rounded-xl text-xs surface-card border font-semibold" style="border-color: var(--border-subtle); color: var(--text-primary);">
             <option value="UPDATE">App Update Banner (Green)</option>
             <option value="NOTICE">General Notice Banner (Yellow)</option>
@@ -248,19 +227,33 @@
           </select>
         </div>
 
+        <!-- CONDITIONAL APP VERSION CONTAINER (Only for UPDATE type) -->
+        <div id="versionFieldsContainer" class="grid grid-cols-2 gap-2 p-2.5 rounded-xl border bg-black/5" style="border-color: var(--border-subtle);">
+          <div>
+            <label class="block text-[10px] font-semibold mb-1" style="color: var(--text-muted);">Target Version Code</label>
+            <input type="number" id="inputTargetVersionCode" min="1" placeholder="e.g. 2, 3" class="w-full px-2.5 py-1.5 rounded-xl text-xs font-mono surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+            <span class="text-[9px] text-muted block mt-0.5">Isse purane apps ko update alert dikhega</span>
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold mb-1" style="color: var(--text-muted);">Display Version Name</label>
+            <input type="text" id="inputTargetVersionName" placeholder="e.g. v1.1.0" class="w-full px-2.5 py-1.5 rounded-xl text-xs font-mono surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+            <span class="text-[9px] text-muted block mt-0.5">Display label (optional)</span>
+          </div>
+        </div>
+
         <div>
           <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Title</label>
-          <input type="text" id="inputBannerTitle" required placeholder="e.g. Server Maintenance or New Update" class="w-full px-3 py-2 rounded-xl text-xs surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+          <input type="text" id="inputBannerTitle" required placeholder="e.g. Server Maintenance or Exam Result Alert" class="w-full px-3 py-2 rounded-xl text-xs surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
         </div>
 
         <div>
           <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Message</label>
-          <textarea id="inputBannerMsg" rows="3" required placeholder="Enter description..." class="w-full px-3 py-2 rounded-xl text-xs surface-card border resize-none" style="border-color: var(--border-subtle); color: var(--text-primary);"></textarea>
+          <textarea id="inputBannerMsg" rows="3" required placeholder="Enter description message for students..." class="w-full px-3 py-2 rounded-xl text-xs surface-card border resize-none" style="border-color: var(--border-subtle); color: var(--text-primary);"></textarea>
         </div>
 
         <div>
           <label class="block text-[11px] font-semibold mb-1" style="color: var(--text-muted);">Click Action URL (Optional)</label>
-          <input type="url" id="inputBannerUrl" placeholder="https://..." class="w-full px-3 py-2 rounded-xl text-xs surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
+          <input type="url" id="inputBannerUrl" placeholder="https://play.google.com/store/apps/..." class="w-full px-3 py-2 rounded-xl text-xs surface-card border" style="border-color: var(--border-subtle); color: var(--text-primary);">
         </div>
 
         <button type="submit" id="saveBannerSubmitBtn" class="w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-md" style="background-color: var(--accent-mint); color: #FFFFFF;">
