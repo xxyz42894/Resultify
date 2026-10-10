@@ -12,6 +12,192 @@ let searchQuery = "";
 const selectedResultKeys = new Set();
 let parsedResultsToUpload = [];
 
+// ==========================================
+// CLOUDFLARE STATIC CDN MIRROR ENGINE
+// ==========================================
+const GH_STORAGE_KEY_TOKEN = "resultify_gh_token";
+const GH_STORAGE_KEY_REPO = "resultify_gh_repo";
+const GH_STORAGE_KEY_PATH = "resultify_gh_path";
+const GH_STORAGE_KEY_AUTOSYNC = "resultify_gh_autosync";
+
+let isCdnSyncInProgress = false;
+let pendingCdnSyncTimer = null;
+
+function getCdnConfig() {
+  return {
+    token: localStorage.getItem(GH_STORAGE_KEY_TOKEN) || "",
+    repo: localStorage.getItem(GH_STORAGE_KEY_REPO) || "xxyz42894/resultify-cdn-demo",
+    path: localStorage.getItem(GH_STORAGE_KEY_PATH) || "results.json",
+    autoSync: localStorage.getItem(GH_STORAGE_KEY_AUTOSYNC) !== "false"
+  };
+}
+
+function saveCdnConfig(token, repo, path, autoSync) {
+  if (token !== undefined) localStorage.setItem(GH_STORAGE_KEY_TOKEN, token.trim());
+  if (repo !== undefined) localStorage.setItem(GH_STORAGE_KEY_REPO, repo.trim());
+  if (path !== undefined) localStorage.setItem(GH_STORAGE_KEY_PATH, path.trim());
+  if (autoSync !== undefined) localStorage.setItem(GH_STORAGE_KEY_AUTOSYNC, autoSync ? "true" : "false");
+}
+
+function initCdnSyncInputs() {
+  const tokenInput = document.getElementById("ghTokenInput");
+  const repoInput = document.getElementById("ghRepoInput");
+  const pathInput = document.getElementById("ghPathInput");
+  const autoCheckbox = document.getElementById("autoSyncCdnCheckbox");
+  const manualBtn = document.getElementById("manualCdnSyncBtn");
+
+  const config = getCdnConfig();
+  if (tokenInput) tokenInput.value = config.token;
+  if (repoInput) repoInput.value = config.repo;
+  if (pathInput) pathInput.value = config.path;
+  if (autoCheckbox) autoCheckbox.checked = config.autoSync;
+
+  const handleInputChange = () => {
+    saveCdnConfig(
+      tokenInput ? tokenInput.value : undefined,
+      repoInput ? repoInput.value : undefined,
+      pathInput ? pathInput.value : undefined,
+      autoCheckbox ? autoCheckbox.checked : undefined
+    );
+  };
+
+  if (tokenInput) tokenInput.oninput = handleInputChange;
+  if (repoInput) repoInput.oninput = handleInputChange;
+  if (pathInput) pathInput.oninput = handleInputChange;
+  if (autoCheckbox) autoCheckbox.onchange = handleInputChange;
+
+  if (manualBtn) {
+    manualBtn.onclick = async () => {
+      await syncDatabaseToCdn(true);
+    };
+  }
+}
+
+// Unicode UTF-8 Safe Base64 Encoder
+function utf8ToBase64(str) {
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+    return String.fromCharCode(parseInt(p1, 16));
+  }));
+}
+
+async function syncDatabaseToCdn(manualTrigger = false, retryCount = 0) {
+  const config = getCdnConfig();
+  const badge = document.getElementById("cdnSyncStatusBadge");
+
+  if (!config.token) {
+    if (manualTrigger) {
+      showToast("Pehle GitHub Token enter karein!", "error");
+    }
+    return;
+  }
+
+  if (isCdnSyncInProgress) {
+    return;
+  }
+  isCdnSyncInProgress = true;
+
+  if (badge) {
+    badge.textContent = "SYNCING...";
+    badge.style.cssText = "background-color: rgba(14,116,144,0.15); color: var(--accent-cyan);";
+  }
+
+  try {
+    // 1. Live Snapshot from Firebase Realtime Database
+    const snap = await get(ref(database, "results"));
+    const rawData = snap.exists() ? snap.val() : {};
+    
+    const formattedList = [];
+    Object.keys(rawData).forEach(k => {
+      formattedList.push({ ...rawData[k] });
+    });
+    formattedList.sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+
+    const cdnPayload = {
+      updatedAt: Date.now(),
+      totalResults: formattedList.length,
+      results: formattedList
+    };
+
+    const jsonText = JSON.stringify(cdnPayload, null, 2);
+    const contentBase64 = utf8ToBase64(jsonText);
+
+    // 2. Fetch Latest File SHA directly from GitHub (Cache-busted)
+    const apiUrl = `https://api.github.com/repos/${config.repo}/contents/${config.path}?ref=main&t=${Date.now()}`;
+    const headers = {
+      "Authorization": `token ${config.token}`,
+      "Accept": "application/vnd.github.v3+json",
+      "Content-Type": "application/json"
+    };
+
+    let fileSha = null;
+    try {
+      const getRes = await fetch(apiUrl, { headers });
+      if (getRes.ok) {
+        const fileInfo = await getRes.json();
+        fileSha = fileInfo.sha;
+      }
+    } catch (e) {
+      // File does not exist yet
+    }
+
+    // 3. PUT call to update/create results.json on GitHub
+    const putBody = {
+      message: `Sync CDN: Updated ${formattedList.length} results [auto]`,
+      content: contentBase64,
+      branch: "main"
+    };
+    if (fileSha) {
+      putBody.sha = fileSha;
+    }
+
+    const putRes = await fetch(`https://api.github.com/repos/${config.repo}/contents/${config.path}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(putBody)
+    });
+
+    if (!putRes.ok) {
+      const errData = await putRes.json();
+
+      // Auto-retry once on 409 SHA conflict
+      if (putRes.status === 409 && retryCount < 1) {
+        isCdnSyncInProgress = false;
+        await new Promise(r => setTimeout(r, 500));
+        return await syncDatabaseToCdn(manualTrigger, retryCount + 1);
+      }
+
+      throw new Error(errData.message || "GitHub API Error");
+    }
+
+    if (badge) {
+      badge.textContent = "SYNCED";
+      badge.style.cssText = "background-color: rgba(4,120,87,0.15); color: var(--accent-mint);";
+    }
+
+    showToast(`CDN Mirror Updated (${formattedList.length} results)!`, "success");
+  } catch (err) {
+    if (badge) {
+      badge.textContent = "FAILED";
+      badge.style.cssText = "background-color: rgba(190,18,60,0.15); color: var(--accent-rose);";
+    }
+    showToast("CDN Sync Error: " + err.message, "error");
+  } finally {
+    isCdnSyncInProgress = false;
+  }
+}
+
+function triggerAutoCdnSync() {
+  const config = getCdnConfig();
+  if (!config.autoSync || !config.token) return;
+
+  if (pendingCdnSyncTimer) {
+    clearTimeout(pendingCdnSyncTimer);
+  }
+  pendingCdnSyncTimer = setTimeout(() => {
+    syncDatabaseToCdn(false);
+  }, 800);
+}
+
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str)
@@ -38,24 +224,33 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.remove(), 4000);
 }
 
-// 1. SAFE TIMER ENGINE
+// 1. SAFE 2-STEP AUTOMATIC TIMER ENGINE
 function evaluateTimedResults() {
   const now = Date.now();
   results.forEach(async (r) => {
-    if (r.status === "Coming Soon + Timer" && r.timeLive && r.timeAvailable) {
-      const liveTime = new Date(r.timeLive).getTime();
-      const availTime = new Date(r.timeAvailable).getTime();
+    const isTimedOrLive = (r.status === "Coming Soon + Timer" || r.status === "Live");
 
+    if (isTimedOrLive && r.timeAvailable) {
+      const availTime = new Date(r.timeAvailable).getTime();
+      const liveTime = r.timeLive ? new Date(r.timeLive).getTime() : 0;
+
+      // Step 2: Live -> Result Available (if timeAvailable reached)
       if (availTime > 0 && now >= availTime) {
-        await update(ref(database, `results/${r.key}`), {
-          status: "Result Available",
-          published: "Declared Officially"
-        });
-      } else if (liveTime > 0 && now >= liveTime) {
+        if (r.status !== "Result Available") {
+          await update(ref(database, `results/${r.key}`), {
+            status: "Result Available",
+            published: "Declared Officially"
+          });
+          triggerAutoCdnSync();
+        }
+      } 
+      // Step 1: Coming Soon + Timer -> Live (if timeLive reached and timeAvailable not reached)
+      else if (r.status === "Coming Soon + Timer" && liveTime > 0 && now >= liveTime) {
         await update(ref(database, `results/${r.key}`), {
           status: "Live",
           published: "Live Now 🔴"
         });
+        triggerAutoCdnSync();
       }
     }
   });
@@ -94,19 +289,21 @@ function syncPushPreview() {
     prevImgContainer.classList.add("hidden");
   }
 
-  const b1 = customBtn1Text ? customBtn1Text.value.trim() : "Check Result";
+  const b1 = customBtn1Text ? customBtn1Text.value.trim() : "";
   const b2 = customBtn2Text ? customBtn2Text.value.trim() : "";
 
-  if (prevBtnsContainer) {
-    prevBtnsContainer.classList.remove("hidden");
+  if (b1 || b2) {
+    if (prevBtnsContainer) prevBtnsContainer.classList.remove("hidden");
     if (prevBtn1) {
-      prevBtn1.textContent = b1 || "Check Result";
+      prevBtn1.textContent = b1 || "Button 1";
       prevBtn1.style.display = b1 ? "inline-block" : "none";
     }
     if (prevBtn2) {
       prevBtn2.textContent = b2 || "Button 2";
       prevBtn2.style.display = b2 ? "inline-block" : "none";
     }
+  } else {
+    if (prevBtnsContainer) prevBtnsContainer.classList.add("hidden");
   }
 }
 
@@ -115,7 +312,6 @@ function setupStatusLogic() {
   const statusSelect = document.getElementById("formStatus");
   const timerComingSoon = document.getElementById("timerSectionComingSoon");
   const timerAnnounced = document.getElementById("timerSectionAnnounced");
-  const portalBox = document.getElementById("officialPortalContainer");
   const portalInput = document.getElementById("formPortalUrl");
   const portalHelper = document.getElementById("portalHelperText");
   const noOfficialUrlCheckbox = document.getElementById("noOfficialUrlCheckbox");
@@ -186,7 +382,6 @@ function setupPushCustomizerEvents() {
   const formDesc = document.getElementById("formDescription");
   const customTitle = document.getElementById("pushCustomTitle");
   const customBody = document.getElementById("pushCustomBody");
-  const customBtn1Text = document.getElementById("pushCustomBtn1Text");
   const scrollBody = document.getElementById("modalScrollBody");
 
   if (!toggleRow || !toggle || !container) return;
@@ -202,9 +397,6 @@ function setupPushCustomizerEvents() {
       }
       if (customBody && !customBody.value.trim()) {
         customBody.value = formDesc && formDesc.value.trim() ? formDesc.value.replace(/<[^>]*>?/gm, '').substring(0, 150) : "Check your scorecard and marksheet online.";
-      }
-      if (customBtn1Text && !customBtn1Text.value.trim()) {
-        customBtn1Text.value = "Check Result";
       }
 
       syncPushPreview();
@@ -360,6 +552,7 @@ onAuthStateChanged(auth, async (user) => {
   } catch (e) {
     currentRole = "owner";
   }
+  initCdnSyncInputs();
   setupListener();
 });
 
@@ -377,7 +570,7 @@ function setupListener() {
     setupTitleAutofill();
     render();
   });
-  setInterval(evaluateTimedResults, 30000);
+  setInterval(evaluateTimedResults, 10000);
 }
 
 function updateStatusCounters() {
@@ -554,6 +747,7 @@ function render() {
       if (confirm("Delete this result permanently?")) {
         await remove(ref(database, `results/${btn.dataset.key}`));
         showToast("Result deleted", "info");
+        triggerAutoCdnSync();
       }
     });
   });
@@ -577,8 +771,7 @@ function render() {
             category: item.category || "",
             openActivity: "ResultDetailActivity",
             url: ""
-          },
-          buttons: [{ id: "btn_action_1", text: "Check Result" }]
+          }
         };
 
         const res = await sendPushNotification(payload);
@@ -611,6 +804,7 @@ if (bulkMakeLiveBtn) {
         showToast(`${selectedResultKeys.size} results are now Available!`, "success");
         selectedResultKeys.clear();
         updateBulkActionBar();
+        triggerAutoCdnSync();
       } catch (err) {
         showToast("Error updating results: " + err.message, "error");
       }
@@ -632,6 +826,7 @@ if (bulkComingSoonBtn) {
         showToast(`${selectedResultKeys.size} results moved to Coming Soon`, "info");
         selectedResultKeys.clear();
         updateBulkActionBar();
+        triggerAutoCdnSync();
       } catch (err) {
         showToast("Error updating results: " + err.message, "error");
       }
@@ -653,6 +848,7 @@ if (bulkDeleteBtn) {
         showToast(`${selectedResultKeys.size} results deleted permanently!`, "info");
         selectedResultKeys.clear();
         updateBulkActionBar();
+        triggerAutoCdnSync();
       } catch (err) {
         showToast("Error deleting results: " + err.message, "error");
       }
@@ -692,7 +888,6 @@ function openModal(key = null) {
   const extraToggleText = document.getElementById("extraToggleText");
   const suggestionsBox = document.getElementById("customSuggestionsBox");
 
-  // Reset push state completely
   if (toggle) toggle.checked = false;
   if (container) container.classList.add("hidden");
   if (noOfficialUrlCheckbox) noOfficialUrlCheckbox.checked = false;
@@ -702,7 +897,6 @@ function openModal(key = null) {
   if (extraToggleText) extraToggleText.textContent = "Enable";
   if (suggestionsBox) suggestionsBox.classList.add("hidden");
 
-  // Clear push form inputs
   const pTitle = document.getElementById("pushCustomTitle");
   const pBody = document.getElementById("pushCustomBody");
   const pUrl = document.getElementById("pushCustomUrl");
@@ -716,7 +910,7 @@ function openModal(key = null) {
   if (pBody) { pBody.value = ""; delete pBody.dataset.touched; }
   if (pUrl) pUrl.value = "";
   if (pBigPic) pBigPic.value = "";
-  if (pB1) pB1.value = "Check Result";
+  if (pB1) pB1.value = "";
   if (pB1U) pB1U.value = "";
   if (pB2) pB2.value = "";
   if (pB2U) pB2U.value = "";
@@ -863,10 +1057,11 @@ if (resultForm) {
     const customBody = document.getElementById("pushCustomBody")?.value.trim();
     const customUrl = document.getElementById("pushCustomUrl")?.value.trim();
     const customBigPic = document.getElementById("pushCustomBigPicture")?.value.trim();
-    const b1Text = document.getElementById("pushCustomBtn1Text")?.value.trim() || "Check Result";
-    const b1Url = document.getElementById("pushCustomBtn1Url")?.value.trim();
-    const b2Text = document.getElementById("pushCustomBtn2Text")?.value.trim();
-    const b2Url = document.getElementById("pushCustomBtn2Url")?.value.trim();
+    
+    const b1Text = document.getElementById("pushCustomBtn1Text")?.value.trim() || "";
+    const b1Url = document.getElementById("pushCustomBtn1Url")?.value.trim() || "";
+    const b2Text = document.getElementById("pushCustomBtn2Text")?.value.trim() || "";
+    const b2Url = document.getElementById("pushCustomBtn2Url")?.value.trim() || "";
 
     try {
       let targetRefKey = editingKey;
@@ -880,6 +1075,8 @@ if (resultForm) {
         targetRefKey = newRef.key;
         showToast(`Result #${data.id} published to database!`, "success");
       }
+
+      triggerAutoCdnSync();
 
       if (toggle && toggle.checked) {
         const actionButtons = [];
@@ -909,6 +1106,7 @@ if (resultForm) {
 
         if (customUrl) oneSignalPayload.url = customUrl;
         if (customBigPic) oneSignalPayload.big_picture = customBigPic;
+        
         if (actionButtons.length > 0) {
           oneSignalPayload.buttons = actionButtons;
           oneSignalPayload.web_buttons = actionButtons;
@@ -948,6 +1146,7 @@ if (openSyncBtn && syncModal) {
   openSyncBtn.onclick = () => {
     syncModal.classList.remove("hidden");
     resetUploadState();
+    initCdnSyncInputs();
   };
 }
 
@@ -1126,6 +1325,8 @@ if (startUploadSyncBtn) {
 
     alert(`Sync Report:\n\n✅ ${syncedCount} Results database me alag-alag kamiyabi se sync ho gaye!\n❌ Failed: ${failedCount}`);
     showToast(`${syncedCount} Results synced to database!`, "success");
+
+    triggerAutoCdnSync();
 
     setTimeout(() => {
       syncModal.classList.add("hidden");

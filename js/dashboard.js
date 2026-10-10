@@ -4,30 +4,24 @@ import { auth, database } from "./firebase-config.js";
 import { getOneSignalOverview, getOneSignalNotifications } from "./onesignal-api.js";
 
 // Banner UI Elements
-const bannerStatusBadge = document.getElementById("bannerStatusBadge");
-const toggleLiveBanner = document.getElementById("toggleLiveBanner");
-const bannerActiveCard = document.getElementById("bannerActiveCard");
+const bannersListContainer = document.getElementById("bannersListContainer");
 const bannerEmptyNotice = document.getElementById("bannerEmptyNotice");
-const bannerTypeTag = document.getElementById("bannerTypeTag");
-const bannerUpdatedTime = document.getElementById("bannerUpdatedTime");
-const bannerTitleDisplay = document.getElementById("bannerTitleDisplay");
-const bannerMsgDisplay = document.getElementById("bannerMsgDisplay");
-const bannerUrlDisplay = document.getElementById("bannerUrlDisplay");
-
-const openEditBannerBtn = document.getElementById("openEditBannerBtn");
-const deleteBannerBtn = document.getElementById("deleteBannerBtn");
-const createBannerBtn = document.getElementById("createBannerBtn");
+const addNewBannerSlotBtn = document.getElementById("addNewBannerSlotBtn");
 
 const editBannerModal = document.getElementById("editBannerModal");
 const closeBannerModalBtn = document.getElementById("closeBannerModalBtn");
 const bannerForm = document.getElementById("bannerForm");
+const inputBannerSlotId = document.getElementById("inputBannerSlotId");
 const inputBannerType = document.getElementById("inputBannerType");
+const versionFieldsContainer = document.getElementById("versionFieldsContainer");
+const inputTargetVersionCode = document.getElementById("inputTargetVersionCode");
+const inputTargetVersionName = document.getElementById("inputTargetVersionName");
 const inputBannerTitle = document.getElementById("inputBannerTitle");
 const inputBannerMsg = document.getElementById("inputBannerMsg");
 const inputBannerUrl = document.getElementById("inputBannerUrl");
 const bannerModalTitle = document.getElementById("bannerModalTitle");
 
-let currentBannerData = null;
+let currentBannersMap = {};
 
 function showToast(message, type = "info") {
   const container = document.getElementById("toastContainer");
@@ -45,136 +39,210 @@ function showToast(message, type = "info") {
   setTimeout(() => toast.remove(), 4000);
 }
 
-// 1. REAL-TIME LISTENER FOR APP HEADER ANNOUNCEMENT BANNER
-function listenToAppBanner() {
-  const bannerRef = ref(database, "app_announcement");
-  onValue(bannerRef, (snapshot) => {
+// 1. CONDITIONAL VERSION INPUT VISIBILITY
+function updateVersionFieldsVisibility() {
+  const selectedType = inputBannerType.value;
+  if (selectedType === "UPDATE") {
+    versionFieldsContainer.classList.remove("hidden");
+    inputTargetVersionCode.required = true;
+  } else {
+    versionFieldsContainer.classList.add("hidden");
+    inputTargetVersionCode.required = false;
+    inputTargetVersionCode.value = "";
+    inputTargetVersionName.value = "";
+  }
+}
+
+if (inputBannerType) {
+  inputBannerType.addEventListener("change", updateVersionFieldsVisibility);
+}
+
+// 2. REAL-TIME MULTI-BANNER LISTENER (Ghost Loop Removed)
+function listenToAppBanners() {
+  const multiRef = ref(database, "app_announcements");
+  onValue(multiRef, (snapshot) => {
     if (snapshot.exists()) {
-      currentBannerData = snapshot.val();
-      renderBannerUI(currentBannerData);
+      currentBannersMap = snapshot.val();
+      renderAllBanners(currentBannersMap);
     } else {
-      currentBannerData = null;
-      renderBannerUI(null);
+      currentBannersMap = {};
+      renderAllBanners({});
     }
   });
 }
 
-function renderBannerUI(data) {
-  if (!data) {
-    if (bannerStatusBadge) {
-      bannerStatusBadge.textContent = "NO BANNER";
-      bannerStatusBadge.style.cssText = "background: rgba(74,93,110,0.15); color: var(--text-muted);";
-    }
-    if (toggleLiveBanner) toggleLiveBanner.checked = false;
-    if (bannerActiveCard) bannerActiveCard.classList.add("hidden");
+function renderAllBanners(bannersMap) {
+  if (!bannersListContainer) return;
+  bannersListContainer.innerHTML = "";
+
+  const keys = Object.keys(bannersMap || {});
+  if (keys.length === 0) {
     if (bannerEmptyNotice) bannerEmptyNotice.classList.remove("hidden");
     return;
   }
-
-  const isActive = Boolean(data.active);
-  if (toggleLiveBanner) toggleLiveBanner.checked = isActive;
-
-  if (bannerStatusBadge) {
-    if (isActive) {
-      bannerStatusBadge.textContent = "ACTIVE ON APP";
-      bannerStatusBadge.style.cssText = "background: rgba(4,120,87,0.15); color: var(--accent-mint);";
-    } else {
-      bannerStatusBadge.textContent = "DISABLED";
-      bannerStatusBadge.style.cssText = "background: rgba(190,18,60,0.15); color: var(--accent-rose);";
-    }
-  }
-
-  if (bannerTypeTag) {
-    const type = (data.type || "NOTICE").toUpperCase();
-    bannerTypeTag.textContent = type;
-    if (type === "UPDATE") {
-      bannerTypeTag.style.cssText = "background: rgba(4,120,87,0.15); color: var(--accent-mint);";
-    } else if (type === "BUG") {
-      bannerTypeTag.style.cssText = "background: rgba(190,18,60,0.15); color: var(--accent-rose);";
-    } else {
-      bannerTypeTag.style.cssText = "background: rgba(180,83,9,0.15); color: var(--accent-amber);";
-    }
-  }
-
-  if (bannerTitleDisplay) bannerTitleDisplay.textContent = data.title || "Announcement";
-  if (bannerMsgDisplay) bannerMsgDisplay.textContent = data.message || "";
-  if (bannerUrlDisplay) {
-    if (data.url) {
-      bannerUrlDisplay.textContent = `Link: ${data.url}`;
-      bannerUrlDisplay.classList.remove("hidden");
-    } else {
-      bannerUrlDisplay.classList.add("hidden");
-    }
-  }
-
-  if (bannerUpdatedTime && data.updatedAt) {
-    const d = new Date(data.updatedAt);
-    bannerUpdatedTime.textContent = d.toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-  }
-
-  if (bannerActiveCard) bannerActiveCard.classList.remove("hidden");
   if (bannerEmptyNotice) bannerEmptyNotice.classList.add("hidden");
-}
 
-// 2. TOGGLE ON/OFF HANDLER (Direct RTDB Write)
-if (toggleLiveBanner) {
-  toggleLiveBanner.addEventListener("change", async () => {
-    if (!currentBannerData) {
-      toggleLiveBanner.checked = false;
-      openBannerModal(false);
-      return;
+  keys.forEach((slotKey) => {
+    const item = bannersMap[slotKey];
+    if (!item) return;
+
+    const isActive = Boolean(item.active);
+    const type = (item.type || "NOTICE").toUpperCase();
+
+    let tagColor = "background: rgba(180,83,9,0.15); color: var(--accent-amber);";
+    let iconName = "info";
+    if (type === "UPDATE") {
+      tagColor = "background: rgba(4,120,87,0.15); color: var(--accent-mint);";
+      iconName = "system_update";
+    } else if (type === "BUG") {
+      tagColor = "background: rgba(190,18,60,0.15); color: var(--accent-rose);";
+      iconName = "warning";
     }
 
-    try {
-      const newStatus = toggleLiveBanner.checked;
-      await set(ref(database, "app_announcement/active"), newStatus);
-      showToast(newStatus ? "Banner App me ON kar diya gaya!" : "Banner App me OFF kar diya gaya!", "success");
-    } catch (e) {
-      showToast("Error updating status: " + e.message, "error");
-    }
+    const card = document.createElement("div");
+    card.className = "p-3 rounded-xl border space-y-2 surface-card transition-all";
+    card.style.borderColor = isActive ? "var(--border-subtle)" : "rgba(190,18,60,0.25)";
+
+    const versionBadge = (type === "UPDATE" && item.targetVersionCode) 
+      ? `<span class="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-700">Code &lt; ${item.targetVersionCode}</span>` 
+      : "";
+
+    card.innerHTML = `
+      <div class="flex items-center justify-between border-b pb-1.5" style="border-color: var(--border-subtle);">
+        <div class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-16" style="${tagColor.split(';')[1]}">${iconName}</span>
+          <span class="font-mono font-bold text-[9px] px-1.5 py-0.5 rounded uppercase" style="${tagColor}">${type}</span>
+          ${versionBadge}
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[9px] font-mono font-bold ${isActive ? 'text-emerald-700' : 'text-rose-600'}">${isActive ? 'ACTIVE' : 'OFF'}</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" data-slot="${slotKey}" class="sr-only banner-slot-toggle" ${isActive ? 'checked' : ''}>
+            <div class="toggle-track"><div class="toggle-knob"></div></div>
+          </label>
+        </div>
+      </div>
+      <div>
+        <h4 class="text-xs font-bold" style="color: var(--text-primary);">${item.title || 'Untitled Banner'}</h4>
+        <p class="text-[11px] line-clamp-2 mt-0.5" style="color: var(--text-muted);">${item.message || ''}</p>
+        ${item.url ? `<p class="text-[9px] font-mono text-cyan-700 truncate mt-1">Link: ${item.url}</p>` : ''}
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-1 border-t border-black/5">
+        <button type="button" data-edit="${slotKey}" class="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border surface-card text-emerald-700">
+          <span class="material-symbols-outlined text-14">edit</span>
+          <span>Edit</span>
+        </button>
+        <button type="button" data-del="${slotKey}" class="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 text-rose-600 bg-rose-500/10">
+          <span class="material-symbols-outlined text-14">delete</span>
+          <span>Delete</span>
+        </button>
+      </div>
+    `;
+
+    bannersListContainer.appendChild(card);
+  });
+
+  // Toggle active/inactive
+  document.querySelectorAll(".banner-slot-toggle").forEach((chk) => {
+    chk.onchange = async (e) => {
+      const slot = e.target.dataset.slot;
+      const state = e.target.checked;
+      try {
+        await set(ref(database, `app_announcements/${slot}/active`), state);
+        showToast(`Banner "${slot.toUpperCase()}" ${state ? 'Active' : 'Deactivated'}!`, "success");
+      } catch (err) {
+        showToast("Toggle Error: " + err.message, "error");
+      }
+    };
+  });
+
+  // Edit button
+  document.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.onclick = () => openBannerModal(btn.dataset.edit);
+  });
+
+  // Delete button (Cleans both multi and legacy nodes)
+  document.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.onclick = async () => {
+      const slot = btn.dataset.del;
+      if (confirm(`"${slot.toUpperCase()}" banner ko permanently delete karein?`)) {
+        try {
+          // Remove from multi-announcements
+          await remove(ref(database, `app_announcements/${slot}`));
+          // Also clear legacy mirror so it never ghost-revives
+          await remove(ref(database, "app_announcement"));
+          showToast("Banner deleted successfully!", "info");
+        } catch (err) {
+          showToast("Delete Error: " + err.message, "error");
+        }
+      }
+    };
   });
 }
 
-// 3. EDIT & CREATE MODAL HANDLERS
-function openBannerModal(isEdit = true) {
+// 3. MODAL OPEN/CLOSE & PRE-FILL
+function openBannerModal(slotKey = null) {
   if (!editBannerModal) return;
   editBannerModal.classList.remove("hidden");
 
-  if (isEdit && currentBannerData) {
-    if (bannerModalTitle) bannerModalTitle.textContent = "Edit Announcement Banner";
-    if (inputBannerType) inputBannerType.value = currentBannerData.type || "UPDATE";
-    if (inputBannerTitle) inputBannerTitle.value = currentBannerData.title || "";
-    if (inputBannerMsg) inputBannerMsg.value = currentBannerData.message || "";
-    if (inputBannerUrl) inputBannerUrl.value = currentBannerData.url || "";
+  if (slotKey && currentBannersMap[slotKey]) {
+    const d = currentBannersMap[slotKey];
+    if (bannerModalTitle) bannerModalTitle.textContent = `Edit ${slotKey.toUpperCase()} Banner`;
+    inputBannerSlotId.value = slotKey;
+    inputBannerType.value = d.type || "NOTICE";
+    inputTargetVersionCode.value = d.targetVersionCode || "";
+    inputTargetVersionName.value = d.targetVersionName || "";
+    inputBannerTitle.value = d.title || "";
+    inputBannerMsg.value = d.message || "";
+    inputBannerUrl.value = d.url || "";
   } else {
     if (bannerModalTitle) bannerModalTitle.textContent = "Create New App Banner";
-    if (bannerForm) bannerForm.reset();
+    bannerForm.reset();
+    inputBannerSlotId.value = "";
+    inputBannerType.value = "NOTICE";
   }
+  updateVersionFieldsVisibility();
 }
 
-if (openEditBannerBtn) openEditBannerBtn.addEventListener("click", () => openBannerModal(true));
-if (createBannerBtn) createBannerBtn.addEventListener("click", () => openBannerModal(false));
-if (closeBannerModalBtn) closeBannerModalBtn.addEventListener("click", () => editBannerModal.classList.add("hidden"));
+if (addNewBannerSlotBtn) addNewBannerSlotBtn.onclick = () => openBannerModal(null);
+document.querySelectorAll(".btn-create-slot").forEach((btn) => {
+  btn.onclick = () => openBannerModal(null);
+});
+if (closeBannerModalBtn) closeBannerModalBtn.onclick = () => editBannerModal.classList.add("hidden");
 
 // 4. BANNER FORM SUBMIT
 if (bannerForm) {
   bannerForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const type = inputBannerType.value;
+    const isUpdate = type === "UPDATE";
+    const versionCode = isUpdate && inputTargetVersionCode.value.trim() ? parseInt(inputTargetVersionCode.value.trim()) : 0;
+    const versionName = isUpdate ? inputTargetVersionName.value.trim() : "";
     const title = inputBannerTitle.value.trim();
     const message = inputBannerMsg.value.trim();
     const url = inputBannerUrl.value.trim();
 
+    let slotId = inputBannerSlotId.value.trim();
+    if (!slotId) {
+      if (type === "UPDATE") slotId = "update";
+      else if (type === "BUG") slotId = "alert";
+      else slotId = "notice";
+    }
+
+    const payload = {
+      active: true,
+      type: type,
+      targetVersionCode: versionCode,
+      targetVersionName: versionName,
+      title: title,
+      message: message,
+      url: url,
+      updatedAt: Date.now()
+    };
+
     try {
-      await set(ref(database, "app_announcement"), {
-        active: true,
-        type: type,
-        title: title,
-        message: message,
-        url: url,
-        updatedAt: Date.now()
-      });
-      showToast("Banner saved & activated in App!", "success");
+      await set(ref(database, `app_announcements/${slotId}`), payload);
+      showToast(`Banner "${slotId.toUpperCase()}" updated & live in App!`, "success");
       editBannerModal.classList.add("hidden");
     } catch (err) {
       showToast("Save Error: " + err.message, "error");
@@ -182,20 +250,7 @@ if (bannerForm) {
   });
 }
 
-// 5. DELETE BANNER
-if (deleteBannerBtn) {
-  deleteBannerBtn.addEventListener("click", async () => {
-    if (!confirm("Are you sure you want to permanently delete this banner from App?")) return;
-    try {
-      await remove(ref(database, "app_announcement"));
-      showToast("Banner deleted from App & Firebase!", "success");
-    } catch (err) {
-      showToast("Delete Error: " + err.message, "error");
-    }
-  });
-}
-
-// Auth State & Real-Time Sync
+// 5. AUTH & LIVE METRICS
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
@@ -225,14 +280,11 @@ onAuthStateChanged(auth, async (user) => {
     if (permCard) permCard.classList.add("hidden");
   }
 
-  // Load Banner Live State
-  listenToAppBanner();
-
+  listenToAppBanners();
   loadLiveMetrics();
   setInterval(loadLiveMetrics, 25000);
 });
 
-// Logout handler
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
   logoutBtn.addEventListener("click", () => {
@@ -240,7 +292,6 @@ if (logoutBtn) {
   });
 }
 
-// Live Metrics Engine
 async function loadLiveMetrics() {
   const t0 = performance.now();
   let dbOk = false;
@@ -253,11 +304,8 @@ async function loadLiveMetrics() {
 
     let resCount = 0;
     if (snap.exists()) {
-      snap.forEach(() => {
-        resCount++;
-      });
+      snap.forEach(() => { resCount++; });
     }
-
     const statRes = document.getElementById("statResults");
     if (statRes) statRes.textContent = resCount;
   } catch (e) {
@@ -276,9 +324,7 @@ async function loadLiveMetrics() {
     osOk = true;
 
     const statSub = document.getElementById("statSubscribers");
-    if (statSub) {
-      statSub.textContent = osData.totalSubscriptions ?? 0;
-    }
+    if (statSub) statSub.textContent = osData.totalSubscriptions ?? 0;
 
     const statNotif = document.getElementById("statNotifications");
     if (statNotif) {
